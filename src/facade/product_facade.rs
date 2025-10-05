@@ -26,7 +26,7 @@ pub async fn update_product(
 
     sqlx::query("update product set title=$1 where id=$2")
         .bind(&title)
-        .bind(&id)
+        .bind(id)
         .execute(&mut **tx)
         .await?;
     Ok(())

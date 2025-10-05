@@ -2,7 +2,6 @@ use crate::{
     error::ErrorMsg,
     facade::{self, select_product_line_by_id},
     model::{AppState, EnProduct, EnProductLine, EnTitle, UserClaims, WsUserLang},
-    util::{get_message, validate_entity},
 };
 use axum::extract::State;
 use axum::{
@@ -12,7 +11,6 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use fluent_resmgr::ResourceManager;
-use hyper::StatusCode;
 use sqlx::{Postgres, Transaction};
 
 pub fn product_router() -> Router<AppState> {
@@ -56,7 +54,7 @@ pub async fn get_products(
 ) -> Result<Json<Vec<EnProduct>>, ErrorMsg> {
     let result: Vec<EnProduct> =
         facade::select_product_by_product_line_id(&state.pool, &pl_id).await?;
-    return Ok(Json(result));
+    Ok(Json(result))
 }
 
 /**

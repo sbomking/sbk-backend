@@ -2,7 +2,6 @@ use crate::{
     error::ErrorMsg,
     facade::{self, select_product_line_by_id},
     model::{AppState, EnProductLine, EnProductLineProducts, EnTitle, UserClaims, WsUserLang},
-    util::{get_message, validate_entity},
 };
 use axum::extract::State;
 use axum::{
@@ -26,7 +25,7 @@ pub async fn get_product_lines(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<EnProductLineProducts>>, ErrorMsg> {
     let result: Vec<EnProductLineProducts> = facade::select_product_lines(&state.pool).await?;
-    return Ok(Json(result));
+    Ok(Json(result))
 }
 
 pub async fn put_product_lines(

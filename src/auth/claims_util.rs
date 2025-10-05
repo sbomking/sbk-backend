@@ -40,7 +40,7 @@ where
             TypedHeader::<Authorization<Bearer>>::from_request_parts(req, &status)
                 .await
                 .map_err(|_| ErrorMsg {
-                    title: (&"InvalidToken").parse().unwrap(),
+                    title: "InvalidToken".parse().unwrap(),
                     status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
                     _type: None,
                     detail: None,
@@ -89,7 +89,7 @@ where
         }
 
         let token2_res = decode::<ClaimsZit>(
-            &bearer.token(),
+            bearer.token(),
             &DecodingKey::from_rsa_components(n.as_str(), e.as_str())?,
             &validation,
         );
@@ -122,7 +122,7 @@ where
                 }
                 tracing::error!("Update OIDC key done");
                 decode::<ClaimsZit>(
-                    &bearer.token(),
+                    bearer.token(),
                     &DecodingKey::from_rsa_components(n.as_str(), e.as_str())?,
                     &validation, /*&Validation::new(Algorithm::RS256)*/
                 )?

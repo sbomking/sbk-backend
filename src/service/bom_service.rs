@@ -1,17 +1,15 @@
 use crate::{
     error::ErrorMsg,
     facade::{self, select_product_line_by_id},
-    model::{AppState, EnProduct, EnProductLine, EnTitle, UserClaims, WsUserLang},
-    util::{get_message, validate_entity},
+    model::{AppState, EnProductLine, EnTitle, UserClaims, WsUserLang},
 };
 use axum::extract::State;
 use axum::{
     Router,
-    extract::{Json as JsonExtract, Path, Query},
+    extract::{Json as JsonExtract, Query},
     response::Json,
-    routing::{delete, get, post, put},
+    routing::post,
 };
-use hyper::StatusCode;
 use sqlx::{Postgres, Transaction};
 
 pub fn bom_router() -> Router<AppState> {

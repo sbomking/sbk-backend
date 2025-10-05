@@ -48,33 +48,21 @@ pub fn map_product_line(items: Vec<FromQueryProductLineProduct>) -> Vec<EnProduc
             }
         };
 
-        match res.p_id {
-            Some(p_id) => {
-                match res.p_title {
-                    Some(p_title) => {
-                        match res.p_product_line_id {
-                            Some(p_product_line_id) => {
-                                match product_lines.iter_mut().find(|pl| pl.id == res.pl_id) {
-                                    Some(product_line) => {
-                                        product_line.products.push(EnProduct {
-                                            id: p_id,
-                                            title: p_title,
-                                            product_line_id: p_product_line_id
-                                        });
-                                    },
-                                    None => { }
-                                };
-                            },
-                            None => { }
-                        };
-                    },
-                    None => (),
+        if let Some(p_id) = res.p_id {
+            if let Some(p_title) = res.p_title {
+                if let Some(p_product_line_id) = res.p_product_line_id {
+                    if let Some(product_line) = product_lines.iter_mut().find(|pl| pl.id == res.pl_id) {
+                        product_line.products.push(EnProduct {
+                            id: p_id,
+                            title: p_title,
+                            product_line_id: p_product_line_id
+                        });
+                    };
                 };
-            },
-            None => (),
+            };
         };
     }
 
     product_lines.sort_by(|a, b| a.title.cmp(&b.title));
-    return product_lines;
+    product_lines
 }

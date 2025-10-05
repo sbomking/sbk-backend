@@ -47,19 +47,19 @@ pub struct ErrorMsg {
 }
 
 pub fn unauthorized_error(lang: &WsUserLang) -> ErrorMsg {
-    return ErrorMsg {
-        title: get_message(&*lang.lang, &"unauthorized", &None),
+    ErrorMsg {
+        title: get_message(&lang.lang, "unauthorized", &None),
         status: StatusCode::UNAUTHORIZED.as_u16(),
         _type: None,
         detail: None,
         instance: None,
         code: None,
         errors: vec![],
-    };
+    }
 }
 
 pub fn simple_error(title: &String) -> ErrorMsg {
-    return ErrorMsg {
+    ErrorMsg {
         title: title.to_string(),
         status: StatusCode::CONFLICT.as_u16(),
         _type: None,
@@ -67,7 +67,7 @@ pub fn simple_error(title: &String) -> ErrorMsg {
         instance: None,
         code: None,
         errors: vec![],
-    };
+    }
 }
 
 impl From<sqlx::Error> for ErrorMsg {
