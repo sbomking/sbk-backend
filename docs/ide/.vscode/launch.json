@@ -1,0 +1,61 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "env": {
+        "AUD": "322609312671268873",
+        "AUTHORITY_URL": "https://localhost:8686/oauth/v2/keys",
+        "ISS": "https://localhost:8686",
+        "PROD": "false",
+        "DATABASE_CONNECTION": "postgres://sca:sca@localhost:5555/sca",
+        "VOLUME": "/home/biscotte/volume/file/",
+        "VOLUME_LOG": "/home/biscotte/volume/app/log/",
+      },
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'sbk-backend'",
+      "program": "${workspaceFolder}/target/debug/sbk-backend",
+      "cargo": {
+        "env": {
+          "AUD": "322609312671268873",
+          "AUTHORITY_URL": "https://localhost:8686/oauth/v2/keys",
+          "ISS": "https://localhost:8686",
+          "PROD": "false",
+          "DATABASE_CONNECTION": "postgres://sca:sca@localhost:5555/sca",
+          "VOLUME": "/home/biscotte/volume/file/",
+          "VOLUME_LOG": "/home/biscotte/volume/app/log/",
+        },
+        "args": ["build", "--bin=sbk-backend", "--package=sbk-backend"],
+        "filter": {
+          "name": "sbk-backend",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'sbk-backend'",
+      "program": "${workspaceFolder}/target/debug/sbk-backend",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=sbk-backend",
+          "--package=sbk-backend"
+        ],
+        "filter": {
+          "name": "sbk-backend",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

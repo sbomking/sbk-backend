@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trivy_server
+  labels:
+    app: trivy_server
+    #https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html
+    io.containers.autoupdate: registry
+    io.containers.sdnotify: container
+spec:
+  selector:
+    matchLabels:
+      app: trivy_server
+  template:
+    metadata:
+      labels:
+        app: trivy_server
+    spec:
+      containers:
+        - name: trivy_server
+          image: docker.io/aquasec/trivy:latest
+          command:
+            ["/usr/local/bin/trivy", "server", "--listen", "0.0.0.0:10000"]
+          ports:
+            - name: http
+              containerPort: 10000
+              hostPort: 10000
+              protocol: TCP
+
+          volumeMounts:
+            - mountPath: "/root/.cache/trivy"
+              name: trivy-cache-vol
+
+      securityContext:
+        capabilities:
+          add: ["NET_ADMIN", "SYS_TIME"]
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: trivy-cache-vol
+          persistentVolumeClaim:
+            claimName: trivy-cache-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: trivy-cache-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
