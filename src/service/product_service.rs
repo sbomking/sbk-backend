@@ -10,7 +10,6 @@ use axum::{
     response::Json,
     routing::{delete, get, post, put},
 };
-use fluent_resmgr::ResourceManager;
 use sqlx::{Postgres, Transaction};
 
 pub fn product_router() -> Router<AppState> {
@@ -67,9 +66,6 @@ pub async fn put_product(
     claims: UserClaims,
     JsonExtract(title): JsonExtract<EnTitle>,
 ) -> Result<(), ErrorMsg> {
-    let mgr: ResourceManager = fluent_resmgr::resource_manager::ResourceManager::new(
-        "./resources/{locale}/{res_id}".into(),
-    );
     if !claims.security {
         return Err(crate::error::unauthorized_error(&lang));
     }
@@ -87,9 +83,6 @@ pub async fn post_product(
     claims: UserClaims,
     JsonExtract(product_line): JsonExtract<EnTitle>,
 ) -> Result<Json<EnProductLine>, ErrorMsg> {
-    let mgr: ResourceManager = fluent_resmgr::resource_manager::ResourceManager::new(
-        "./resources/{locale}/{res_id}".into(),
-    );
     if !claims.security {
         return Err(crate::error::unauthorized_error(&lang));
     }

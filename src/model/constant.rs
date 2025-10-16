@@ -19,6 +19,32 @@ pub static AUTHORITY_URL: LazyLock<String> = LazyLock::new(|| match env::var("AU
     }
 });
 
+
+#[cfg(feature = "opentelemetry")]
+pub static OTEL_EXPORTER_OTLP_PROTOCOL: LazyLock<opentelemetry_otlp::Protocol> = LazyLock::new(|| match env::var("OTEL_EXPORTER_OTLP_PROTOCOL") {
+    Ok(val) => {
+        match val.as_str() {
+            "grpc" => opentelemetry_otlp::Protocol::Grpc,
+            "http/json" => opentelemetry_otlp::Protocol::HttpJson,
+            "http/protobuf" => opentelemetry_otlp::Protocol::HttpBinary,
+            _ => panic!("{} is not a supported value for OTEL_EXPORTER_OTLP_PROTOCOL. Choose: grpc, http/protobuf, http/json", val)
+        }
+    },
+    Err(_e) => {
+        panic!("could not find OTEL_EXPORTER_OTLP_PROTOCOL")
+    }
+});
+
+
+#[cfg(feature = "opentelemetry")]
+pub static OTEL_EXPORTER_OTLP_ENDPOINT: LazyLock<String> = LazyLock::new(|| match env::var("OTEL_EXPORTER_OTLP_ENDPOINT") {
+    Ok(val) => val,
+    Err(_e) => {
+        panic!("could not find OTEL_EXPORTER_OTLP_ENDPOINT")
+    }
+});
+
+
 pub static ISS: LazyLock<String> = LazyLock::new(|| match env::var("ISS") {
     Ok(val) => val,
     Err(_e) => {

@@ -14,47 +14,48 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
  
      fn verify_server_cert(
         &self,
-        end_entity: &rustls_pki_types::CertificateDer<'_>,
-        intermediates: &[rustls_pki_types::CertificateDer<'_>],
-        server_name: &rustls_pki_types::ServerName<'_>,
-        ocsp_response: &[u8],
-        now: rustls_pki_types::UnixTime,
+        _end_entity: &rustls_pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls_pki_types::CertificateDer<'_>],
+        _server_name: &rustls_pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls_pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
         Ok(rustls::client::danger::ServerCertVerified::assertion())
     }
 
     fn verify_tls12_signature(
         &self,
-        message: &[u8],
-        cert: &rustls_pki_types::CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
+        _message: &[u8],
+        _cert: &rustls_pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
     }
 
     fn verify_tls13_signature(
         &self,
-        message: &[u8],
-        cert: &rustls_pki_types::CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
+        _message: &[u8],
+        _cert: &rustls_pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        let mut sign = vec![];
-        sign.push(rustls::SignatureScheme::ECDSA_NISTP256_SHA256);
-        sign.push(rustls::SignatureScheme::ECDSA_NISTP384_SHA384);
-        sign.push(rustls::SignatureScheme::ECDSA_NISTP521_SHA512);
-        sign.push(rustls::SignatureScheme::ED25519);
-        sign.push(rustls::SignatureScheme::ED448);
-        sign.push(rustls::SignatureScheme::RSA_PKCS1_SHA1);
-        sign.push(rustls::SignatureScheme::RSA_PKCS1_SHA256);
-        sign.push(rustls::SignatureScheme::RSA_PKCS1_SHA384);
-        sign.push(rustls::SignatureScheme::RSA_PKCS1_SHA512);
-        sign.push(rustls::SignatureScheme::RSA_PSS_SHA256);
-        sign.push(rustls::SignatureScheme::RSA_PSS_SHA384);
-        sign.push(rustls::SignatureScheme::RSA_PSS_SHA512);
+        let sign = vec![
+            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            rustls::SignatureScheme::ED25519,
+            rustls::SignatureScheme::ED448,
+            rustls::SignatureScheme::RSA_PKCS1_SHA1,
+            rustls::SignatureScheme::RSA_PKCS1_SHA256,
+            rustls::SignatureScheme::RSA_PKCS1_SHA384,
+            rustls::SignatureScheme::RSA_PKCS1_SHA512,
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            rustls::SignatureScheme::RSA_PSS_SHA384,
+            rustls::SignatureScheme::RSA_PSS_SHA512
+        ];
         sign
     }
 }
