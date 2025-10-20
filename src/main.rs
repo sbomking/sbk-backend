@@ -11,7 +11,7 @@ mod util;
 
 use model::AppState;
 //use opentelemetry::trace::Tracer;
-use service::{bom_router, health_router, product_line_router, product_router};
+use service::{bom_router, health_router, product_line_router, product_router, scan_router};
 use tokio::net::TcpListener;
 
 use axum::{
@@ -23,11 +23,11 @@ use axum::{
 };
 use std::env;
 
-use std::{borrow::Cow, fs, sync::Arc, time::Duration};
+use std::{borrow::Cow, fs, time::Duration};
 use tower::{BoxError, ServiceBuilder};
 use tracing::Span;
 
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+//use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 
 async fn create_file(filename: &str) -> Result<fs::File, std::io::Error> {
@@ -43,8 +43,21 @@ async fn create_file(filename: &str) -> Result<fs::File, std::io::Error> {
     file
 }
 
+//https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>  {
+
+    /* 
+    let mut client = GreeterClient::connect("http://[::1]:50051").await?;
+
+    let request = tonic::Request::new(HelloRequest {
+        name: "Tonic".into(),
+    });
+
+    let response = client.say_hello(request).await?;
+
+    println!("RESPONSE={:?}", response);
+    */
 
     #[cfg(not(feature = "opentelemetry"))]
     let file = create_file("debug.log").await;
@@ -91,6 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .merge(health_router())
         .merge(product_line_router())
         .merge(product_router())
+        .merge(scan_router())
         .with_state(state)
         //.layer(metrics)
         .layer(

@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package trivy.rpc.v1;
+
+option go_package = "github.com/aquasecurity/trivy/rpc;rpc";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// =======================
+// COMMON DEFINITIONS
+// =======================
+
+message OS {
+  string family = 1;
+  string name = 2;
+  bool eosl = 3;
+  bool extended = 4;
+}
+
+message Package {
+  string id = 13;
+  string name = 1;
+  string version = 2;
+  string release = 3;
+  int32 epoch = 4;
+  string arch = 5;
+  string src_name = 6;
+  string src_version = 7;
+  string src_release = 8;
+  int32 src_epoch = 9;
+  repeated string licenses = 15;
+  string file_path = 12;
+  string digest = 16;
+  bool dev = 17;
+  bool indirect = 18;
+}
+
+message DetectedMisconfiguration {
+  string type = 1;
+  string id = 2;
+  string title = 3;
+  string description = 4;
+  string message = 5;
+  string namespace = 6;
+  string resolution = 7;
+  Severity severity = 8;
+  string primary_url = 9;
+  repeated string references = 10;
+  string status = 11;
+}
+
+message CustomResource {
+  string type = 1;
+  string file_path = 2;
+  google.protobuf.Value data = 4;
+}
+
+message SecretFinding {
+  string rule_id = 1;
+  string category = 2;
+  string severity = 3;
+  string title = 4;
+  int32 start_line = 5;
+  int32 end_line = 6;
+  string match = 8;
+}
+
+message DetectedLicense {
+  Severity severity = 1;
+  LicenseCategory.Enum category = 2;
+  string pkg_name = 3;
+  string file_path = 4;
+  string name = 5;
+  float confidence = 6;
+  string link = 7;
+}
+
+enum Severity {
+  UNKNOWN = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+  CRITICAL = 4;
+}
+
+message LicenseCategory {
+  enum Enum {
+    UNSPECIFIED = 0;
+    FORBIDDEN = 1;
+    RESTRICTED = 2;
+    RECIPROCAL = 3;
+    NOTICE = 4;
+    PERMISSIVE = 5;
+    UNENCUMBERED = 6;
+    UNKNOWN = 7;
+  }
+}
+
+// =======================
+// SCANNER SERVICE
+// =======================
+
+service Scanner {
+  rpc Scan (ScanRequest) returns (ScanResponse);
+}
+
+message ScanRequest {
+  string target = 1;
+  string artifact_id = 2;
+  repeated string blob_ids = 3;
+  ScanOptions options = 4;
+}
+
+message Licenses {
+  repeated string names = 1;
+}
+
+message ScanOptions {
+  repeated string pkg_types = 1;
+  repeated string scanners = 2;
+  map<string, Licenses> license_categories = 4;
+  bool include_dev_deps = 5;
+  repeated string pkg_relationships = 6;
+  reserved 3;
+}
+
+message ScanResponse {
+  OS os = 1;
+  repeated Result results = 3;
+}
+
+message Result {
+  string target = 1;
+  repeated DetectedMisconfiguration misconfigurations = 4;
+  repeated Package packages = 5;
+  string type = 3;
+  string class = 6;
+  repeated CustomResource custom_resources = 7;
+  repeated SecretFinding secrets = 8;
+  repeated DetectedLicense licenses = 9;
+}
+
+// =======================
+// CACHE SERVICE
+// =======================
+
+service Cache {
+  rpc PutArtifact(PutArtifactRequest) returns (google.protobuf.Empty);
+  rpc PutBlob(PutBlobRequest) returns (google.protobuf.Empty);
+  rpc MissingBlobs(MissingBlobsRequest) returns (MissingBlobsResponse);
+  rpc DeleteBlobs(DeleteBlobsRequest) returns (google.protobuf.Empty);
+}
+
+message ArtifactInfo {
+  int32 schema_version = 1;
+  string architecture = 2;
+  google.protobuf.Timestamp created = 3;
+  string docker_version = 4;
+  string os = 5;
+  repeated Package history_packages = 6;
+  SecretFinding secret = 7;
+}
+
+message PutArtifactRequest {
+  string artifact_id = 1;
+  ArtifactInfo artifact_info = 2;
+}
+
+message BlobInfo {
+  int32 schema_version = 1;
+  OS os = 2;
+  repeated Package package_infos = 3;
+  repeated CustomResource applications = 4;
+  repeated DetectedMisconfiguration misconfigurations = 9;
+  repeated string opaque_dirs = 5;
+  repeated string whiteout_files = 6;
+  string digest = 7;
+  string diff_id = 8;
+  repeated CustomResource custom_resources = 10;
+  repeated SecretFinding secrets = 12;
+  repeated DetectedLicense licenses = 13;
+  int64 size = 14;
+  string created_by = 15;
+}
+
+message PutBlobRequest {
+  string diff_id = 1;
+  BlobInfo blob_info = 3;
+}
+
+message PutResponse {
+  OS os = 1;
+  bool eosl = 2;
+}
+
+message MissingBlobsRequest {
+  string artifact_id = 1;
+  repeated string blob_ids = 2;
+}
+
+message MissingBlobsResponse {
+  bool missing_artifact = 1;
+  repeated string missing_blob_ids = 2;
+}
+
+message DeleteBlobsRequest {
+  repeated string blob_ids = 1;
+}

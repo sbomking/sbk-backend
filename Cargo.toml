@@ -6,6 +6,18 @@ edition = "2024"
 [profile.release]
 strip = true
 
+#[[bin]] # Bin to run the HelloWorld gRPC server
+#name = "helloworld-server"
+#path = "src/server_hello.rs"
+#
+#[[bin]] # Bin to run the HelloWorld gRPC client
+#name = "helloworld-client"
+#path = "src/client_hello.rs"
+
+[[bin]] # Bin to run the HelloWorld gRPC client
+name = "trivy-client"
+path = "src/trivy.rs"
+
 [dependencies]
 tokio = { version = "^1.47.1", features = ["full"] }
 hyper = { version = "^1.7.0", features = ["full"] }
@@ -40,6 +52,11 @@ unic-langid = { version = "0.9.6", features = [ "macros" ] }
 validator = { version = "0.20.0", features = ["derive"] }
 webpki-roots = "1.0.2"
 
+prost = "0.14.1"
+prost-types = "0.14.1" 
+tonic = "0.14.2"
+tonic-prost = "0.14.2" 
+
 ############ OpenTelemetry ############
 opentelemetry = { version = "0.31.0", features = ["logs", "metrics", "trace", "internal-logs", "spec_unstable_logs_enabled"], optional = true }
 opentelemetry-appender-tracing = { version = "0.31.1", optional = true }
@@ -56,3 +73,9 @@ opentelemetry = [
     "dep:opentelemetry-appender-tracing",
     "dep:tracing-opentelemetry",
 ]
+
+
+
+[build-dependencies]
+tonic-prost-build = "0.14.2"
+

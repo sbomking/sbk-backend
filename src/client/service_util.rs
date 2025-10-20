@@ -1,7 +1,8 @@
 use axum::body::Body;
-use hyper::{header::USER_AGENT, http::HeaderValue};
+use hyper::{header::USER_AGENT, http::HeaderValue, StatusCode};
 use hyper_rustls::HttpsConnector;
 use hyper_util::{client::legacy::{Client, connect::HttpConnector}, rt::TokioExecutor};
+use rustls_pki_types::pem::PemObject;
 use tower::ServiceBuilder;
 use tower_http::{trace::TraceLayer, classify::{StatusInRangeAsFailures, SharedClassifier}, set_header::{SetRequestHeaderLayer, SetRequestHeader}, decompression::{DecompressionLayer, Decompression}};
 
@@ -125,4 +126,38 @@ pub fn get_hyper_client() -> Result<tower_http::trace::Trace<SetRequestHeader<De
         .service(hyper_client);
 
     Ok(client)
+}
+
+pub fn get_hyper_client_with_custom_certs(cert_pem: &String) -> Result<hyper_util::client::legacy::Client<HttpsConnector<HttpConnector>, Body>, ErrorMsg> {
+
+    let certs = rustls_pki_types::CertificateDer::from_pem_slice(cert_pem.as_bytes()).expect("Failed to parse PEM certificate");
+
+    let mut roots = rustls::RootCertStore::empty();
+    match roots.add(certs) {
+        Ok(_) => {},
+        Err(_) => return Err(ErrorMsg {
+            _type: None,
+            detail: None,
+            instance: None,
+            code: None,
+            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            title: String::from("Impossible to add the pem certificate in the rootcertstore"),
+            errors: vec![],
+        }),
+    }
+
+    let tls = rustls::ClientConfig::builder()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+
+    
+    let https_connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_tls_config(tls)
+        .https_only()
+        .enable_http2()
+        .build();
+
+    let hyper_client: Client<HttpsConnector<HttpConnector>, Body> = hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new()).build(https_connector);
+
+    Ok(hyper_client)
 }

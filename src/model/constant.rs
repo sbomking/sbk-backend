@@ -45,6 +45,13 @@ pub static OTEL_EXPORTER_OTLP_ENDPOINT: LazyLock<String> = LazyLock::new(|| matc
 });
 
 
+pub static TRIVY_PROXY_PK: LazyLock<String> = LazyLock::new(|| match env::var("TRIVY_PROXY_PK") {
+    Ok(val) => val,
+    Err(_e) => {
+        panic!("could not find TRIVY_PROXY_PK")
+    }
+});
+
 pub static ISS: LazyLock<String> = LazyLock::new(|| match env::var("ISS") {
     Ok(val) => val,
     Err(_e) => {

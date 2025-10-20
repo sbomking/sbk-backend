@@ -17,10 +17,16 @@ spec:
         app: trivy_server
     spec:
       containers:
+        - name: trivy_https_nginx
+          image: localhost/nginx_trivy:0.0.1
+          ports:
+            - containerPort: 10001
+              name: nginx_port
+              hostPort: 10001
         - name: trivy_server
           image: docker.io/aquasec/trivy:latest
           command:
-            ["/usr/local/bin/trivy", "server", "--listen", "0.0.0.0:10000"]
+            ["/usr/local/bin/trivy", "server", "--listen", "0.0.0.0:10000", "--insecure"]
           ports:
             - name: http
               containerPort: 10000

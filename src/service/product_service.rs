@@ -61,7 +61,7 @@ pub async fn get_products(
  */
 pub async fn put_product(
     State(state): State<AppState>,
-    Path((pl_id, p_id)): Path<(i16, i16)>,
+    Path((_pl_id, p_id)): Path<(i16, i16)>,
     Query(lang): Query<WsUserLang>,
     claims: UserClaims,
     JsonExtract(title): JsonExtract<EnTitle>,
@@ -117,7 +117,7 @@ pub async fn post_product(
  */
 pub async fn delete_product(
     State(state): State<AppState>,
-    Path((pl_id, p_id)): Path<(i16, i16)>,
+    Path((_pl_id, p_id)): Path<(i16, i16)>,
     claims: UserClaims,
     Query(lang): Query<WsUserLang>,
 ) -> Result<(), ErrorMsg> {

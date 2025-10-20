@@ -17,7 +17,7 @@ pub fn bom_router() -> Router<AppState> {
 }
 
 /**
- * Store a BOM to S3.
+ * Store a BOM to S3 or db??? maybe db is easier to deploy
  * Update table.
  * Scan and return result.
  *
