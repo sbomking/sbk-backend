@@ -9,6 +9,7 @@ mod service;
 mod tests;
 mod util;
 
+use hyper::Method;
 use model::AppState;
 //use opentelemetry::trace::Tracer;
 use service::{bom_router, health_router, product_line_router, product_router, scan_router};
@@ -18,14 +19,17 @@ use axum::{
     Router,
     body::Bytes,
     error_handling::HandleErrorLayer,
-    http::{Request, StatusCode},
+    http::{self, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
+use tower_http::cors::CorsLayer;
 use std::env;
 
 use std::{borrow::Cow, fs, time::Duration};
 use tower::{BoxError, ServiceBuilder};
 use tracing::Span;
+
+use crate::model::HTTP_CORS_ORIGINS;
 
 //use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -99,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         },
     };
 
-    let app = Router::new()
+    let mut app = Router::new()
         .merge(bom_router())
         .merge(health_router())
         .merge(product_line_router())
@@ -165,6 +169,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
                 )
                 .into_inner(),
         );
+
+    if HTTP_CORS_ORIGINS.as_str().len() > 0 {
+        app = app.layer(
+            CorsLayer::new()
+                .allow_origin(HTTP_CORS_ORIGINS.as_str().parse::<HeaderValue>().unwrap())
+                .allow_headers([
+                    http::header::AUTHORIZATION,
+                    http::header::CONTENT_TYPE,
+                    http::HeaderName::from_bytes(b"Lang").unwrap(),
+                    http::HeaderName::from_bytes(b"X-PINGOTHER").unwrap(),
+                ])
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ]),
+        );
+    }
 
     let listener = TcpListener::bind("0.0.0.0:5002").await.unwrap();
     axum::serve(listener, app.into_make_service())

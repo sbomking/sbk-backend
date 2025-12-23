@@ -1,0 +1,13 @@
+category-nbr-max-team-range = Nbr max team range from { $min } to { $max }
+hello-user = Hello, { $username }!
+hello-world = Hello world
+match-rule-no-winner-of-set = No winner of the set
+unauthorized = Unauthorized
+team-participate-match = The team { $name } participates in a match
+participant-team-member = The participant is a member of a team.
+participant-min-for-a-team = At least one participant is required to create a team
+poule-match-already-exist-for-category = Matchs already exist for this category
+poule-number-of-point-not-equal = The number of point is not the same
+poule-equality-impossible = Equality is not possible
+max-length = The maximal length is { $length }
+tournament-begin-date-lt-end-date = La date de début doit être < que la date de fin

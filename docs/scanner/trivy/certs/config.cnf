@@ -1,0 +1,31 @@
+[req]
+prompt = no
+default_bits = 2048
+distinguished_name = req_distinguished_name
+x509_extensions = v3_ca  # For self-signed certs; use v3_req for CSRs
+req_extensions = v3_req   # Required to add SAN to CSR
+ 
+[req_distinguished_name]
+C = US                     # Country (2-letter code)
+ST = California            # State/Province
+L = San Francisco          # City
+O = Example Corp           # Organization
+OU = IT Department         # Organizational Unit
+CN = example.com           # Primary domain (still required but not used for validation)
+ 
+[v3_req]
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names  # Reference SANs below
+ 
+[v3_ca]                     # For self-signed certs; includes CA extensions
+keyUsage = digitalSignature, keyEncipherment, keyCertSign
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+basicConstraints = CA:TRUE   # Mark as a CA (for self-signed)
+ 
+[alt_names]
+DNS.1 = example.com          # Primary domain
+DNS.2 = www.example.com      # Subdomain 1
+DNS.3 = api.example.com      # Subdomain 2
+IP.1 = 127.0.0.1       # Optional: Add IP addresses

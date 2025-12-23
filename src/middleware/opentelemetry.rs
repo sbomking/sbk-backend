@@ -1,16 +1,27 @@
 // This module provides utilities to set up OpenTelemetry tracing using the OTLP exporter.
 // It configures the tracer provider, resource attributes, and integrates with tracing-subscriber.
 use opentelemetry::trace::TracerProvider;
-use opentelemetry::global;
-use opentelemetry_otlp::{Protocol, WithExportConfig};
+use opentelemetry::{global, KeyValue};
+use opentelemetry_otlp::{Protocol, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use std::collections::HashMap;
+use std::{error::Error, sync::OnceLock};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 use opentelemetry_otlp::SpanExporter;
 
 
+pub const AUTHORIZATION: &str = "Authorization";
+pub const SERVICE_NAMESPACE: &str = "service.namespace";
+pub const SERVICE_NAME: &str = "service.name";
+
 fn init_tracer_provider() -> SdkTracerProvider{
+    let headers = HashMap::from([
+        (AUTHORIZATION.to_string(), String::from(crate::model::OTEL_EXPORTER_OTLP_HEADERS.as_str()))
+    ]);
+
+    //crate::client::get_hyper_client()
     let exporter: SpanExporter = match *crate::model::OTEL_EXPORTER_OTLP_PROTOCOL {
         Protocol::Grpc => {
             SpanExporter::builder()
@@ -24,6 +35,7 @@ fn init_tracer_provider() -> SdkTracerProvider{
                 .with_http()
                 .with_protocol(Protocol::HttpBinary)
                 .with_endpoint(crate::model::OTEL_EXPORTER_OTLP_ENDPOINT.as_str())
+                .with_headers(headers)
                 .build()
                 .expect("Failed to create span exporter")
         },
@@ -32,14 +44,19 @@ fn init_tracer_provider() -> SdkTracerProvider{
                 .with_http()
                 .with_protocol(Protocol::HttpJson)
                 .with_endpoint(crate::model::OTEL_EXPORTER_OTLP_ENDPOINT.as_str())
+                .with_headers(headers)
                 .build()
                 .expect("Failed to create span exporter")
         },
     };
-    
+
     let provider = SdkTracerProvider::builder()
         .with_resource(Resource::builder()
-        .with_service_name("sdk-backend").build())
+        //.with_service_name("sbomking").build())
+        .with_attributes(vec![
+            KeyValue::new(SERVICE_NAME, String::from("sbomking")),
+            KeyValue::new(SERVICE_NAMESPACE, String::from("sbomking"))
+        ]).build())
         .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
         .with_batch_exporter(exporter)
         .build();
@@ -54,12 +71,11 @@ pub fn init_tracing_opentelemetry() -> SdkTracerProvider {
     global::set_tracer_provider(tracer_provider.clone());
 
     //let tracer = global::tracer("tracer-name");
-    let tracer = tracer_provider.tracer("sdk-backend");
+    let tracer = tracer_provider.tracer("sbomking");
 
 
-    let filter = EnvFilter::try_from_default_env()
-    .unwrap_or_else(|_| "error,opentelemetry=error".parse().unwrap());
-
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| "error,opentelemetry=error".parse().unwrap());
+    //let filter = EnvFilter::new(r#"span{matched_path="/v1/health"}=off"#).unwrap_or_else(|_| "error,opentelemetry=error".parse().unwrap());
     let fmt_layer = tracing_subscriber::fmt::layer()
         .event_format(
             tracing_subscriber::fmt::format()

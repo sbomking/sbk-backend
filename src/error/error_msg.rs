@@ -200,6 +200,90 @@ impl From<hyper::Error> for ErrorMsg {
     }
 }
 
+
+
+
+impl From<std::io::Error> for ErrorMsg {
+    fn from(inner: std::io::Error) -> Self {
+        tracing::error!("io::Error error {:?}", inner);
+        println!("io::Error error {:?}", inner);
+        ErrorMsg {
+            title: ERR.to_string(),
+            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            _type: None,
+            detail: None,
+            instance: None,
+            code: None,
+            errors: vec![],
+        }
+    }
+}
+
+impl From<prost::EncodeError> for ErrorMsg {
+    fn from(inner: prost::EncodeError) -> Self {
+        tracing::error!("prost::EncodeError error {:?}", inner);
+        println!("prost::EncodeError error {:?}", inner);
+        ErrorMsg {
+            title: ERR.to_string(),
+            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            _type: None,
+            detail: None,
+            instance: None,
+            code: None,
+            errors: vec![],
+        }
+    }
+}
+
+impl From<prost::DecodeError> for ErrorMsg {
+    fn from(inner: prost::DecodeError) -> Self {
+        tracing::error!("prost::DecodeError error {:?}", inner);
+        println!("prost::DecodeError error {:?}", inner);
+        ErrorMsg {
+            title: ERR.to_string(),
+            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            _type: None,
+            detail: None,
+            instance: None,
+            code: None,
+            errors: vec![],
+        }
+    }
+}
+
+
+impl From<tonic::Status> for ErrorMsg {
+    fn from(inner: tonic::Status) -> Self {
+        tracing::error!("tonic::Status error {:?}", inner);
+        println!("tonic::Status error {:?}", inner);
+        ErrorMsg {
+            title: ERR.to_string(),
+            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+            _type: None,
+            detail: None,
+            instance: None,
+            code: None,
+            errors: vec![],
+        }
+    }
+}
+
+/**
+ *   `tonic::Status` implements `From<h2::error::Error>`
+  `tonic::Status` implements `From<std::io::Error>`
+
+impl From<std::io::Error> for tonic::Status {
+    fn from(inner: std::io::Error) -> Self {
+        tracing::error!("tonic::Status error {:?}", inner);
+        println!("tonic::Status error {:?}", inner);
+        tonic::Status::internal(ERR.to_string())
+    }
+}
+     */
+
+//tonic::Status` implements `From<>`
+  //`tonic::Status` implements `From<std::io::Error
+
 impl From<serde_urlencoded::ser::Error> for ErrorMsg {
     fn from(inner: serde_urlencoded::ser::Error) -> Self {
         tracing::error!("serde_urlencoded::ser::Error error {:?}", inner);
@@ -246,3 +330,5 @@ impl IntoResponse for ErrorMsg {
         (status, body).into_response()
     }
 }
+
+

@@ -19,6 +19,12 @@ pub static AUTHORITY_URL: LazyLock<String> = LazyLock::new(|| match env::var("AU
     }
 });
 
+pub static HTTP_CORS_ORIGINS: LazyLock<String> = LazyLock::new(|| match env::var("HTTP_CORS_ORIGINS") {
+    Ok(val) => val,
+    Err(_e) => {
+        panic!("could not find HTTP_CORS_ORIGINS")
+    }
+});
 
 #[cfg(feature = "opentelemetry")]
 pub static OTEL_EXPORTER_OTLP_PROTOCOL: LazyLock<opentelemetry_otlp::Protocol> = LazyLock::new(|| match env::var("OTEL_EXPORTER_OTLP_PROTOCOL") {
@@ -44,6 +50,13 @@ pub static OTEL_EXPORTER_OTLP_ENDPOINT: LazyLock<String> = LazyLock::new(|| matc
     }
 });
 
+#[cfg(feature = "opentelemetry")]
+pub static OTEL_EXPORTER_OTLP_HEADERS: LazyLock<String> = LazyLock::new(|| match env::var("OTEL_EXPORTER_OTLP_HEADERS") {
+    Ok(val) => val,
+    Err(_e) => {
+        panic!("could not find OTEL_EXPORTER_OTLP_HEADERS")
+    }
+});
 
 pub static TRIVY_PROXY_PK: LazyLock<String> = LazyLock::new(|| match env::var("TRIVY_PROXY_PK") {
     Ok(val) => val,

@@ -21,6 +21,7 @@
         "OTEL_TRACES_EXPORTER": "",
         "OTEL_METRICS_EXPORTER": "",
         "OTEL_METRICS_EXPORT_INTERVAL": "",
+        "TRIVY_PROXY_PK": "",
         "RUST_LOG": "info,opentelemetry=info",
         "VOLUME": "/home/biscotte/volume/file/",
         "VOLUME_LOG": "/home/biscotte/volume/app/log/",
@@ -36,17 +37,24 @@
           "ISS": "https://localhost:8686",
           "PROD": "false",
           "DATABASE_CONNECTION": "postgres://sca:sca@localhost:5555/sca",
+          "TRIVY_PROXY_PK": "",
           "VOLUME": "/home/biscotte/volume/file/",
           "VOLUME_LOG": "/home/biscotte/volume/app/log/",
         },
-        "args": ["build", "--bin=sbk-backend", "--package=sbk-backend", "--features", "opentelemetry"],
+        "args": [
+          "build",
+          "--bin=sbk-backend",
+          "--package=sbk-backend",
+          "--features",
+          "opentelemetry",
+        ],
         "filter": {
           "name": "sbk-backend",
-          "kind": "bin"
-        }
+          "kind": "bin",
+        },
       },
       "args": [],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
     },
     {
       "type": "lldb",
@@ -58,15 +66,15 @@
           "test",
           "--no-run",
           "--bin=sbk-backend",
-          "--package=sbk-backend"
+          "--package=sbk-backend",
         ],
         "filter": {
           "name": "sbk-backend",
-          "kind": "bin"
-        }
+          "kind": "bin",
+        },
       },
       "args": [],
-      "cwd": "${workspaceFolder}"
-    }
-  ]
+      "cwd": "${workspaceFolder}",
+    },
+  ],
 }

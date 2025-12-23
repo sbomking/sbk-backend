@@ -2,6 +2,8 @@ FROM nginxinc/nginx-unprivileged:stable-alpine-slim
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
+#openssl req -x509 -newkey rsa:4096 -keyout localhost-selfsigned.key -out localhost-selfsigned.crt -days 3650 -nodes -subj "/CN=localhost"
+
 COPY --chown=nginx:root --chmod=755 certs/localhost-selfsigned.crt /etc/ssl/certs/localhost-selfsigned.crt
 COPY --chown=nginx:root --chmod=755 certs/localhost-selfsigned.key /etc/ssl/private/localhost-selfsigned.key
 COPY --chown=nginx:root --chmod=755 certs/dhparam-localhost.pem /etc/ssl/certs/dhparam-localhost.pem

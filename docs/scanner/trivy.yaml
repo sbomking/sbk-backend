@@ -26,7 +26,7 @@ spec:
         - name: trivy_server
           image: docker.io/aquasec/trivy:latest
           command:
-            ["/usr/local/bin/trivy", "server", "--listen", "0.0.0.0:10000", "--insecure"]
+            ["/usr/local/bin/trivy", "server", "--listen", "0.0.0.0:10000", "--insecure", "--debug"]
           ports:
             - name: http
               containerPort: 10000
