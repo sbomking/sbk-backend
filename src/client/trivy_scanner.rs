@@ -15,18 +15,22 @@ use sha2::{Digest, Sha256};
 use tower::{Service, ServiceExt};
 use trivy::{
     ArtifactInfo, BlobInfo, CustomResource, DeleteBlobsRequest, DetectedLicense,
-    DetectedMisconfiguration, LicenseCategory, Licenses, MissingBlobsRequest, MissingBlobsResponse,
-    Os, Package, PutArtifactRequest, PutBlobRequest, PutResponse, Result, ScanOptions, ScanRequest,
-    ScanResponse, SecretFinding, cache_client,
+    DetectedMisconfiguration, LicenseCategory, MissingBlobsRequest, MissingBlobsResponse, Os,
+    Package, PutArtifactRequest, PutBlobRequest, PutResponse, SecretFinding, cache_client,
 };
 
 use crate::{
-    client::{get_hyper_client, get_hyper_client_unsecure, trivy::{cache_server::Cache, scanner_client::ScannerClient, scanner_server::Scanner}},
+    client::{
+        get_hyper_client, get_hyper_client_unsecure,
+        trivy::{
+            Application, Layer, LicenseFile, Misconfiguration, PackageInfo, PkgIdentifier, Secret,
+            cache_server::Cache,
+        },
+    },
     error::ErrorMsg,
     model::{CdxBom, HashAlg, LicenseChoiceUrl, TRIVY_PROXY_PK},
 };
 //use api::{publisher_client::PublisherClient, ListTopicsRequest};
-
 
 #[derive(Clone, PartialEq, Eq, /*Hash,*/ ::prost::Message)]
 pub struct TrivyErrorResponse {
@@ -64,13 +68,21 @@ pub async fn scan_cdx(cdx: &CdxBom, lang: &String) -> core::result::Result<(), E
 }
 
 pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result<(), ErrorMsg> {
-    let results: Vec<Result> = vec![];
+    let results: Vec<trivy::Result> = vec![];
 
     for blob_info in blob_infos {
         //let diff_id = rand::distr::SampleString::sample_string(&rand::distr::Alphanumeric, &mut rand::rng(), 16);
         //TODO diff_id sha256
 
-        let random_string = rand::distr::SampleString::sample_string(&rand::distr::Alphanumeric, &mut rand::rng(), 16);
+        // Print the full content of blob_info in JSON format
+        //let blob_info_json = serde_json::to_string_pretty(&blob_info).unwrap();
+        //println!("BlobInfo JSON: {}", blob_info_json);
+
+        let random_string = rand::distr::SampleString::sample_string(
+            &rand::distr::Alphanumeric,
+            &mut rand::rng(),
+            16,
+        );
         let mut diff_id_hex = Sha256::new();
         diff_id_hex.update(random_string);
         let diff_id: String = format!("sha256:{:X}", diff_id_hex.finalize());
@@ -78,7 +90,7 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         //String::from("sha256:") + &diff_id, //+random sha256,
         let put_blob_http: PutBlobRequest = PutBlobRequest {
             blob_info: Some(blob_info.clone()),
-            diff_id: blob_info.diff_id.clone()// diff_id.clone()
+            diff_id: blob_info.diff_id.clone(), // diff_id.clone()
         };
 
         //let str = String::from_utf8(put_blob_http.encode_to_vec())?;
@@ -88,20 +100,32 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         let mut buf = Vec::new();
         prost::Message::encode(&put_blob_http, &mut buf)?;
 
+        //protoc --decode=trivy.cache.v1.PutBlobRequest cache.proto < your_request.bin
+        //sudo tcpdump -i any port 10000 -c 100 -w trivy.pcap
+        //sudo tcpdump -i any port 10000 -c 100 -w sbking.pcap
+
+        // Print the buf to a JSON format
+        //let json_str = serde_json::to_string_pretty(&put_blob_http).unwrap();
+        //println!("PutBlobRequest JSON: {}", json_str);
+        println!("Body bytes {:?} ", put_blob_http);
 
         //https://github.com/twitchtv/twirp?tab=readme-ov-file
         let prod = crate::model::PROD.as_str();
         let request = hyper::Request::builder()
             .method("POST")
             //.uri(String::from("https://127.0.0.1:10001/twirp/trivy.cache.v1.Cache/PutBlob"))
-            .uri(String::from("http://127.0.0.1:10000/twirp/trivy.cache.v1.Cache/PutBlob"))
+            .uri(String::from(
+                "http://127.0.0.1:10000/twirp/trivy.cache.v1.Cache/PutBlob",
+            ))
             .header("Content-Type", "application/protobuf")
+            .header("Accept", "application/protobuf")
             .header("Host", "127.0.0.1")
-            .version(hyper::Version::HTTP_2)
+            .header("Content-Length", buf.len().to_string())
+            .header("Twirp-Version", "v8.1.3")
+            .version(hyper::Version::HTTP_11)
             .body(axum::body::Body::from(buf))?;
-            //.body(axum::body::Body::from(serde_json::to_vec(&buf)?))?;
-            //.body(axum::body::Body::empty())?;
-
+        //.body(axum::body::Body::from(serde_json::to_vec(&buf)?))?;
+        //.body(axum::body::Body::empty())?;
 
         /*let host = url.host().expect("uri has no host");
         let port = url.port_u16().unwrap_or(80);
@@ -110,16 +134,16 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         let url = String::from("http://127.0.0.1:10000");
         let stream = tokio::net::TcpStream::connect(String::from("127.0.0.1:10000")).await?;
         let io = hyper_util::rt::TokioIo::new(stream);
-    
+
         let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
         tokio::task::spawn(async move {
             if let Err(err) = conn.await {
                 println!("Connection failed: {:?}", err);
             }
         });
-    
+
         let mut response = sender.send_request(request).await?;
-        /* 
+        /*
         let response = if String::from("true").eq(&prod) {
             tracing::info!("Before calling get_hyper_client");
             get_hyper_client()?.ready().await?.call(request).await?
@@ -133,12 +157,14 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
                 .await?
         };
         */
-        
-        /*let keys_str: String =*/ 
+
+        /*let keys_str: String =*/
         if response.status() != hyper::StatusCode::OK {
             println!("update_oidc_key response: {} ", response.status());
             //let body_bytes = axum::body::to_bytes(response.into_body(), MAX_BODY_SIZE).await?;
-            let body_bytes = http_body_util::BodyExt::collect(response.into_body()).await?.to_bytes();
+            let body_bytes = http_body_util::BodyExt::collect(response.into_body())
+                .await?
+                .to_bytes();
             println!("Body bytes {:X} ", body_bytes);
 
             //let trivy_error: TrivyErrorResponse = prost::Message::decode(&body_bytes[..])?;
@@ -147,7 +173,6 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
 
             //7B22636F6465223A226D616C666F726D6564222C226D7367223A227468652070726F746F627566207265717565737420636F756C64206E6F74206265206465636F646564227D
             //{"code":"malformed","msg":"the prototype request could not be decoded"}
-
 
             //let str = String::from_utf8(body_bytes.to_vec())?;
             //tracing::info!("update_oidc_key response body {} ", str);
@@ -175,26 +200,42 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
             //println!("Body bytes {} ", str);
         };
         //println!("put_blob response {:?}", keys_str);
-        
 
         //vuln,misconfig,secret,license
-        let scan_blob: ScanRequest = ScanRequest { 
-            target: blob_info.diff_id.clone().clone(), 
-            artifact_id: blob_info.diff_id.clone().clone(), 
-            blob_ids: vec![blob_info.diff_id.clone().clone().clone()], 
+        let scan_blob: crate::client::trivy::ScanRequest = crate::client::trivy::ScanRequest {
+            target: blob_info.diff_id.clone().clone(),
+            artifact_id: blob_info.diff_id.clone().clone(),
+            blob_ids: vec![blob_info.diff_id.clone().clone().clone()],
 
-            options: Some(ScanOptions { pkg_types: vec!["library".to_string(), "os".to_string()], scanners: vec!["vuln".to_string()], license_categories: HashMap::new(), include_dev_deps: false, 
-            pkg_relationships: vec!["unknown".to_string(),"root".to_string(),"workspace".to_string(),"direct".to_string(),"indirect".to_string()] }) 
+            options: Some(crate::client::trivy::ScanOptions {
+                pkg_types: vec!["library".to_string(), "os".to_string()],
+                scanners: vec!["vuln".to_string(), "sbom".to_string()],
+                license_categories: HashMap::new(),
+                include_dev_deps: false,
+                pkg_relationships: vec![
+                    "unknown".to_string(),
+                    "root".to_string(),
+                    "workspace".to_string(),
+                    "direct".to_string(),
+                    "indirect".to_string(),
+                ],
+                distro: None,
+                vuln_severity_sources: vec!["auto".to_string()],
+                license_full: false,
+            }),
         };
 
         let mut buf = Vec::new();
         prost::Message::encode(&scan_blob, &mut buf)?;
         let request = hyper::Request::builder()
             .method("POST")
-            .uri(String::from("http://127.0.0.1:10000/twirp/trivy.scanner.v1.Scanner/Scan"))
+            .uri(String::from(
+                "http://127.0.0.1:10000/twirp/trivy.scanner.v1.Scanner/Scan",
+            ))
             .header("Content-Type", "application/protobuf")
             .header("Host", "127.0.0.1")
-            .version(hyper::Version::HTTP_2)
+            .header("Content-Length", buf.len().to_string())
+            .version(hyper::Version::HTTP_11)
             .body(axum::body::Body::from(buf))?;
 
         let mut response = sender.send_request(request).await?;
@@ -202,7 +243,9 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         if response.status() != hyper::StatusCode::OK {
             println!("Scan response: {} ", response.status());
             //let body_bytes = axum::body::to_bytes(response.into_body(), MAX_BODY_SIZE).await?;
-            let body_bytes = http_body_util::BodyExt::collect(response.into_body()).await?.to_bytes();
+            let body_bytes = http_body_util::BodyExt::collect(response.into_body())
+                .await?
+                .to_bytes();
             let str = String::from_utf8(body_bytes.to_vec())?;
             tracing::info!("Scan response body {} ", str);
             println!("Scan response body {} ", str);
@@ -220,13 +263,15 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
             //println!("else Scan response: {} ", response.status());
 
             //let body_bytes = axum::body::to_bytes(response.into_body(), MAX_BODY_SIZE).await?;
-            let body_bytes = http_body_util::BodyExt::collect(response.into_body()).await?.to_bytes();
+            let body_bytes = http_body_util::BodyExt::collect(response.into_body())
+                .await?
+                .to_bytes();
             //println!("Body bytes {:X} ", body_bytes);
             //let mut buf: &[u8] = &body_bytes.to_vec();
             //println!("Body bytes u8 {:X} ", buf);
             //let scan_response: ScanResponse = prost::Message::decode(buf)?;
-            let scan_response: ScanResponse = prost::Message::decode(&body_bytes[..])?;
-            
+            let scan_response: crate::client::trivy::ScanResponse =
+                prost::Message::decode(&body_bytes[..])?;
 
             for result in scan_response.results {
                 tracing::info!("SCAN result {} ", result.target);
@@ -238,7 +283,7 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
                 }
                 for package in &result.packages {
                     println!("  package name: {}", package.name);
-                    println!("  package digest: {}", package.digest);
+                    //println!("  package digest: {}", package.digest);
                 }
                 for custom_resource in &result.custom_resources {
                     println!("  custom_resource file_path: {}", custom_resource.file_path);
@@ -252,7 +297,7 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         //println!("Scan response {:?}", keys_str);
         //Scanner::scan(&'life0 self, request)
 
-        /* 
+        /*
         let put_blob: PutBlobRequest = PutBlobRequest {
             blob_info: Some(blob_info.clone()),
             diff_id: String::from("sha256:"), //+random sha256,
@@ -282,23 +327,6 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
 }
 
 pub struct MyTrivyImpl {}
-/*
-#[tonic::async_trait]
-impl Greeter for MyGreeter {
-    async fn say_hello(
-        &self,
-        request: Request<HelloRequest>,
-    ) -> Result<Response<HelloReply>, Status> {
-        println!("Got a request: {:?}", request);
-
-        let reply = HelloReply {
-            message: format!("Hello {}!", request.into_inner().name),
-        };
-
-        Ok(Response::new(reply))
-    }
-}
-*/
 
 #[tonic::async_trait]
 impl Cache for MyTrivyImpl {
@@ -342,12 +370,12 @@ impl Cache for MyTrivyImpl {
             Ok(channel) => {
                 println!("✅ HTTP2 Successfully connected to {}", &endpoint);
                 // You can now use `channel` to create your client
-                /* 
+                /*
                 let (stream, _) = listener.accept().await?;
                 // Use an adapter to access something implementing `tokio::io` traits as if they implement
                 // `hyper::rt` IO traits.
                 let io = TokioIo::new(stream);
-        
+
                 // Spin up a new task in Tokio so we can continue to listen for new TCP connection on the
                 // current task without waiting for the processing of the HTTP/2 connection we just received
                 // to finish
@@ -363,7 +391,7 @@ impl Cache for MyTrivyImpl {
                 });
                 */
                 //let test = hyper::client::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new());
-                
+
                 //calling put_blob failed: Status { code: Unknown, message: "h2 protocol error: http2 error", source: Some(tonic::transport::Error(Transport, hyper::Error(Http2, Error { kind: GoAway(b"", FRAME_SIZE_ERROR, Library) }))) }
                 //let mut client = cache_client::CacheClient::new(channel);
                 //let response = client.put_blob(request).await?;
@@ -419,15 +447,16 @@ impl Cache for MyTrivyImpl {
             .with_root_certificates(roots)
             .with_no_client_auth();
 
-
         // if you want to completely disable cert-verification, use this
         let mut dangerous_config = rustls::ClientConfig::dangerous(&mut tls);
-        dangerous_config.set_certificate_verifier(std::sync::Arc::new(crate::client::NoCertificateVerification {}));
+        dangerous_config.set_certificate_verifier(std::sync::Arc::new(
+            crate::client::NoCertificateVerification {},
+        ));
 
         /**
          * New try
          */
-        /* 
+        /*
          let connector = hyper_rustls::HttpsConnectorBuilder::new()
             .with_tls_config(tls)
             .https_or_http()
@@ -440,7 +469,7 @@ impl Cache for MyTrivyImpl {
         // We have to do some wrapping here to map the request type from
         // `https://example.com` -> `https://[::1]:50051` because `rustls`
         // doesn't accept ip's as `ServerName`.
-         
+
         let connector = tower::ServiceBuilder::new()
             .layer_fn(move |s| {
                 let tls = tls.clone();
@@ -456,8 +485,7 @@ impl Cache for MyTrivyImpl {
             // and map it to the correct `Uri` that will connect us directly to the local server.
             .map_request(|_| Uri::from_static("https://[::1]:10001"))
             .service(http);
-        
-        
+
         /*
         let stream = TcpStream::connect(addr).await?;
         let io = TokioIo::new(stream);
@@ -474,21 +502,15 @@ impl Cache for MyTrivyImpl {
         let mut cc = cache_client::CacheClient::with_origin(client, uri);
 
         /**
-         * Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(Other(OtherError(CaUsedAsEndEntity))) } })) }
-            calling put_blob failed Status { code: Unknown, message: "client error (Connect)", source: Some(hyper_util::client::legacy::Error(Connect, Custom 
-            { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(Other(OtherError(CaUsedAsEndEntity))) } })) }
-         */
+        * Some(hyper_util::client::legacy::Error(Connect, Custom { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(Other(OtherError(CaUsedAsEndEntity))) } })) }
+           calling put_blob failed Status { code: Unknown, message: "client error (Connect)", source: Some(hyper_util::client::legacy::Error(Connect, Custom
+           { kind: Other, error: Custom { kind: InvalidData, error: InvalidCertificate(Other(OtherError(CaUsedAsEndEntity))) } })) }
+        */
         let response = cc.put_blob(request).await?;
         println!("RESPONSE={:?}", response);
 
-
-
-
-
-
         // THE SOLUTION IS THIS: Nvm, the HTTP server exposed by Trivy also supports application/protobuf payloads. Protobuf can be used without gRPC: https://twitchtv.github.io/twirp/docs/proto_and_json.html
-        //TODO use application/protobuf 
-
+        //TODO use application/protobuf
 
         /**
          * END NEW TRY
@@ -722,6 +744,104 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 }
 */
 
+/**
+* protoc --decode=trivy.rpc.v1.PutBlobRequest trivy.proto < trivy.bin
+diff_id: "sha256:25CAF220606342A5233AB13A8E719EE39606B27A41258467A31C1ED1D4347845"
+blob_info {
+  schema_version: 2
+  os {
+    family: "centos"
+    name: "7.6.1810"
+  }
+  package_infos {
+    name: "bash"
+    version: "4.2.46-31.el7"
+    release: "1"
+    epoch: 1
+    arch: "x86_64"
+    src_name: "src"
+    src_version: "1.2.3"
+    src_release: "1"
+    src_epoch: 1
+    id: "rpmbash4.2.46-31.el7"
+    digest: "ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
+    indirect: true
+  }
+  digest: "ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
+  diff_id: "sha256:25CAF220606342A5233AB13A8E719EE39606B27A41258467A31C1ED1D4347845"
+  size: 7
+}
+
+Copilot proposal
+
+diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
+blob_info {
+  schema_version: 2
+
+  os {
+    family: "centos"
+    name: "centos"
+    version: "7.6.1810"
+  }
+
+  package_infos {
+    id: "bash@4.2.46-31.el7.x86_64"
+    name: "bash"
+    version: "4.2.46"
+    release: "31.el7"
+    epoch: 0
+    arch: "x86_64"
+
+    src_name: "bash"
+    src_version: "4.2.46"
+    src_release: "31.el7"
+    src_epoch: 0
+
+    licenses: "GPLv3+"
+
+    file_path: "/usr/bin/bash"
+    digest: "sha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
+
+    layer {
+      diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
+      digest: "sha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
+    }
+
+    indirect: false
+    dev: false
+  }
+
+  diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
+  size: 7
+}
+
+
+
+               E �~(@ @�    �'�"p"V�� @�  
+������POST /twirp/trivy.cache.v1.Cache/PutBlob HTTP/1.1
+Host: 127.0.0.1:10000
+User-Agent: trivy/0.68.2
+Content-Length: 924
+Accept: application/protobuf
+Content-Type: application/protobuf
+Twirp-Version: v8.1.3
+Accept-Encoding: gzip
+
+
+Gsha256:387882a972793c86b45be8312421a24dab3c292110a28e4292062d1d6d4da443�
+centos7.6.1810��
+bash4.2.4631.el7*x86_642bash:4.2.46B31.el7Z�
+Gsha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133bGsha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4ajbash@4.2.46-31.el7.x86_64zGPLv3+��
+Dpkg:rpm/centos/bash@4.2.46-31.el7?arch=x86_64&distro=centos-7.6.1810Dpkg:rpm/centos/bash@4.2.46-31.el7?arch=x86_64&distro=centos-7.6.1810�
+openssl-libs1.0.2k16.el7 *x86_642openssl:1.0.2kB16.el7HZ�
+Gsha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133bGsha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4aj!openssl-libs@1.0.2k-16.el7.x86_64zOpenSSL+��
+Tpkg:rpm/centos/openssl-libs@1.0.2k-16.el7?arch=x86_64&distro=centos-7.6.1810&epoch=1Tpkg:rpm/centos/openssl-libs@1.0.2k-16.el7?arch=x86_64&epoch=1&distro=centos-7.6.1810
+
+
+https://protobuf-decoder.netlify.app/
+
+0a477368613235363a333837383832613937323739336338366234356265383331323432316132346461623363323932313130613238653432393230363264316436643464613434331ad006080212120a0663656e746f731208372e362e313831301ab70612fc020a04626173681206342e322e34361a0633312e656c372a067838365f36343204626173683a06342e322e3436420633312e656c375a92010a477368613235363a6163393230383230376164616163336134386535346134646336623439633639653738633330373264326233616464376566646162663831346462323133336212477368613235363a383931363964383764626532623732626134326266626233353739633935373332326261636132386530336131653535383037363534326131633162326234616a196261736840342e322e34362d33312e656c372e7838365f36347a0647504c76332b9a018c010a44706b673a72706d2f63656e746f732f6261736840342e322e34362d33312e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e313831301244706b673a72706d2f63656e746f732f6261736840342e322e34362d33312e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e3138313012b5030a0c6f70656e73736c2d6c6962731206312e302e326b1a0631362e656c3720012a067838365f363432076f70656e73736c3a06312e302e326b420631362e656c3748015a92010a477368613235363a6163393230383230376164616163336134386535346134646336623439633639653738633330373264326233616464376566646162663831346462323133336212477368613235363a383931363964383764626532623732626134326266626233353739633935373332326261636132386530336131653535383037363534326131633162326234616a216f70656e73736c2d6c69627340312e302e326b2d31362e656c372e7838365f36347a084f70656e53534c2b9a01ac010a54706b673a72706d2f63656e746f732f6f70656e73736c2d6c69627340312e302e326b2d31362e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e313831302665706f63683d311254706b673a72706d2f63656e746f732f6f70656e73736c2d6c69627340312e302e326b2d31362e656c373f617263683d7838365f36342665706f63683d312664697374726f3d63656e746f732d372e362e31383130
+*/
 impl CdxBom {
     pub fn to_trivy_blob_info(
         &self,
@@ -730,37 +850,46 @@ impl CdxBom {
 
         let mut i: i32 = 0;
         //packageInfo, application, os, componentByPUrl
+
         match &self.components {
             Some(components) => {
+                //Set the OS if it is found in the SBOM.
+                let os: Option<Os> =
+                    match &components.iter().find(|c| c.type_ == "operating-system") {
+                        Some(os_component) => Some(Os {
+                            family: os_component.name.clone(),
+                            name: match &os_component.version {
+                                Some(version) => version.clone(),
+                                None => String::from(""),
+                            },
+                            eosl: false,
+                            extended: false,
+                        }),
+                        None => None,
+                    };
+
                 for component in components {
-
-                    
                     println!("component.type_: {:?}", component.type_);
-                    i = i+1;
-                    let mut package_infos: Vec<Package> = vec![];
-                    let mut os: Option<Os> = None;
+                    i = i + 1;
+                    let mut packages: Vec<Package> = vec![];
 
-                    let digest: String = match &component.hashes {
+                    let digest: Option<String> = match &component.hashes {
                         Some(hashes) => match hashes.iter().find(|h| h.alg == HashAlg::Sha256) {
-                            Some(sha_256) => String::from("SHA256:") + &sha_256.content,
+                            Some(sha_256) => Some(String::from("SHA256:") + &sha_256.content),
                             None => {
                                 match hashes.iter().find(|h| h.alg == HashAlg::Sha1) {
-                                    Some(sha_1) => String::from("SHA1:") + &sha_1.content,
+                                    Some(sha_1) => Some(String::from("SHA1:") + &sha_1.content),
                                     None => {
                                         //let mut map: HashMap<String, String> = HashMap::new();
                                         //map.insert("component_name".to_string(), component.name.clone());
                                         //return Err((&"sha256-of-component-not-provided", Some(map)));
-                                        String::from("")
+                                        //String::from( "sha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b",)
+                                        None
                                     }
                                 }
                             }
                         },
-                        None => {
-                            //let mut map: HashMap<String, String> = HashMap::new();
-                            //map.insert("component_name".to_string(), component.name.clone());
-                            //return Err((&"sha256-of-component-not-provided", Some(map)));
-                            String::from("")
-                        }
+                        None => None,
                     };
                     match &component.properties {
                         Some(properties) => {
@@ -769,14 +898,12 @@ impl CdxBom {
                                 match &property.value {
                                     Some(value) => {
                                         //println!("property value: {:?}", value);
-                                    },
-                                    None => {},
+                                    }
+                                    None => {}
                                 }
                             }
-                        },
-                        None => {
-
-                        },
+                        }
+                        None => {}
                     }
 
                     /* Package URL.
@@ -789,18 +916,23 @@ impl CdxBom {
                             println!("package_type: {:?}", package_type);
 
                             if package_type != "" && package_type != "unknown" {
-
-                                let name = match package_type == "cocoa" || package_type == "maven" || package_type == "gradle" || package_type == "bitnami"  {
+                                let name = match package_type == "cocoa"
+                                    || package_type == "maven"
+                                    || package_type == "gradle"
+                                    || package_type == "bitnami"
+                                {
                                     true => packageurl.name().to_string(),
                                     false => {
                                         let name = match &component.group {
                                             Some(group) => {
-                                                group.to_string() + &String::from("/") + &component.name.to_string()
-                                            },
+                                                group.to_string()
+                                                    + &String::from("/")
+                                                    + &component.name.to_string()
+                                            }
                                             None => component.name.to_string(),
                                         };
                                         name
-                                    },
+                                    }
                                 };
 
                                 let arch = match packageurl.qualifiers().get("arch") {
@@ -809,49 +941,87 @@ impl CdxBom {
                                 };
 
                                 let epoch = match packageurl.qualifiers().get("epoch") {
-                                    Some(epoch) => {
-                                        match epoch.to_string().parse::<i32>() {
-                                            Ok(val) => val,
-                                            Err(_e) => 2,
-                                        }
-                                    }
-                                    None => 1,
+                                    Some(epoch) => match epoch.to_string().parse::<i32>() {
+                                        Ok(val) => Some(val),
+                                        Err(_e) => None,
+                                    },
+                                    None => None,
                                 };
 
                                 let distro = match packageurl.qualifiers().get("distro") {
                                     Some(distro) => distro.to_string(),
                                     None => String::from(""),
                                 };
-    
+
                                 let version = match &packageurl.version() {
                                     Some(version) => version.to_string(),
                                     None => String::from(""),
                                 };
-    
+
+                                let identifier: Option<PkgIdentifier> = match &component.bom_ref {
+                                    Some(bom_reference) => Some(PkgIdentifier {
+                                        purl: purl.clone(),
+                                        bom_ref: bom_reference.clone(),
+                                        uid: String::from(""),
+                                    }),
+                                    None => None,
+                                };
+                                /*
+                                *     id: "bash@4.2.46-31.el7.x86_64"
+                                name: "bash"
+                                version: "4.2.46"
+                                release: "31.el7"
+                                */
+                                let versions: Vec<&str> = version.split("-").collect();
+                                let mut iter_versions = versions.iter();
+                                let semver_version = match iter_versions.next() {
+                                    Some(v) => v,
+                                    None => "",
+                                };
+                                let release = match iter_versions.next() {
+                                    Some(v) => v,
+                                    None => "",
+                                };
+
+                                //TODO, this protobuff is missing the field 11 & 19
                                 let package: Package = Package {
-                                    id: package_type.to_string() + &packageurl.name().to_string() + &version.clone(), //i.to_string(),
-                                    name: name,//packageurl.name().to_string(),
-                                    //name: String::from(""),
-                                    version: version.clone(),
-                                    release: String::from("1"),
+                                    //package_type.to_string() +
+                                    id: packageurl.name().to_string()
+                                        + &"@"
+                                        + &version.clone()
+                                        + &"."
+                                        + &arch.clone(), //i.to_string(),
+                                    //bash
+                                    name: name.clone(), //packageurl.name().to_string(),
+                                    //4.2.46
+                                    version: semver_version.to_owned(),
+                                    //31.el7
+                                    release: release.to_owned(),
                                     epoch: epoch,
                                     arch: arch,
                                     //src_name: packageurl.name().to_string(),
                                     //src_version: version,
-                                    src_name: String::from("src"),
-                                    src_version: String::from("1.2.3"),
-                                    src_release: String::from("1"),
+                                    src_name: name,
+                                    src_version: semver_version.to_owned(),
+                                    src_release: release.to_owned(),
                                     src_epoch: epoch,
-                                    licenses: vec![],
-                                    file_path: String::from(""),
+                                    licenses: vec![String::from("GPLv3+")],
+                                    file_path: None,
                                     digest: digest.clone(),
-                                    dev: false,
+                                    dev: None,
                                     indirect: true,
+                                    identifier,
+                                    locations: vec![],
+                                    layer: None,
+                                    depends_on: vec![],
+                                    maintainer: String::from(""),
+                                    relationship: 0,
                                 };
-                                package_infos.push(package);
+                                packages.push(package);
                             }
-                        },
+                        }
                         None => {
+                            /*
                             match component.type_ == "operating-system" {
                                 true => {
                                     let os_component: Os = Os {
@@ -865,20 +1035,16 @@ impl CdxBom {
                                     };
                                     os = Some(os_component)
                                 }
-                                false => {},
+                                false => {}
                             };
-                        },
+                             */
+                        }
                     }
 
-
-                    let applications: Vec<CustomResource> = vec![];
+                    let applications: Vec<Application> = vec![];
                     let opaque_dirs: Vec<String> = vec![];
                     let whiteout_files: Vec<String> = vec![];
-                    let misconfigurations: Vec<DetectedMisconfiguration> = vec![];
-
-
-
-
+                    let misconfigurations: Vec<Misconfiguration> = vec![];
 
                     //let random_string = rand::distr::SampleString::sample_string(&rand::distr::Alphanumeric, &mut rand::rng(), 16);
                     //let diff_id: String = String::from("sha256:...");
@@ -888,17 +1054,21 @@ impl CdxBom {
                     //diff_id_hex.update(random_string);
                     //let diff_id: String = format!("{:X}", diff_id_hex.finalize());
 
-                    let random_string = rand::distr::SampleString::sample_string(&rand::distr::Alphanumeric, &mut rand::rng(), 16);
+                    let random_string = rand::distr::SampleString::sample_string(
+                        &rand::distr::Alphanumeric,
+                        &mut rand::rng(),
+                        16,
+                    );
                     let mut diff_id_hex = Sha256::new();
                     diff_id_hex.update(random_string);
                     let diff_id: String = format!("sha256:{:X}", diff_id_hex.finalize());
 
                     let custom_resources: Vec<CustomResource> = vec![];
-                    let secrets: Vec<SecretFinding> = vec![];
+                    let secrets: Vec<Secret> = vec![];
 
-                    let licenses: Vec<DetectedLicense> = match &component.licenses {
-                        Some(licenses) => {
-                            match licenses {
+                    let licenses: Vec<LicenseFile> = match &component.licenses {
+                        Some(license_choise_url) => {
+                            match license_choise_url {
                                 LicenseChoiceUrl::Variant0(
                                     license_choice_url_variant0_item_urls,
                                 ) => {
@@ -931,9 +1101,14 @@ impl CdxBom {
                     let size: i64 = 7;
                     let created_by: String = String::from("");
 
+                    let package_infos: Vec<PackageInfo> = vec![PackageInfo {
+                        file_path: None,
+                        packages: packages,
+                    }];
+
                     let blob_info: BlobInfo = BlobInfo {
                         schema_version: 2,
-                        os,
+                        os: os.clone(),
                         package_infos,
                         applications,
                         misconfigurations,
@@ -946,6 +1121,8 @@ impl CdxBom {
                         licenses,
                         size,
                         created_by,
+                        repository: None,
+                        build_info: None,
                     };
                     blob_infos.push(blob_info);
 
@@ -960,26 +1137,6 @@ impl CdxBom {
                         }
                         None => {}
                     }
-
-                    /*
-                    let mut package_info: Package = Package {
-                        id: (),
-                        name: (),
-                        version: (),
-                        release: (),
-                        epoch: (),
-                        arch: (),
-                        src_name: (),
-                        src_version: (),
-                        src_release: (),
-                        src_epoch: (),
-                        licenses: (),
-                        file_path: (),
-                        digest: (),
-                        dev: (),
-                        indirect: ()
-                    };
-                    */
 
                     match &component.group {
                         Some(group) => {
@@ -1060,4 +1217,3 @@ impl CdxBom {
         Ok(blob_infos)
     }
 }
-

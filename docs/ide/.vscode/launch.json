@@ -14,6 +14,7 @@
         "DATABASE_CONNECTION": "postgres://sca:sca@localhost:5555/sca",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318/v1/traces",
         "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+        "OTEL_EXPORTER_OTLP_HEADERS": "",
         "OTEL_LOG_LEVEL": "",
         "OTEL_EXPORTER_OTLP_KEY_CERT_KEYS": "",
         "OTEL_EXPORTER_OTLP_KEY_CERT_CERTS": "",
