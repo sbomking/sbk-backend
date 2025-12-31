@@ -1,0 +1,21 @@
+NOTICE
+
+This product includes software developed by third parties under the Apache License, Version 2.0.
+
+----
+This product includes protobuf files derived from the Trivy project.
+Project URL: https://github.com/aquasecurity/trivy
+
+Copyright [2019-2020] [Aqua Security Software Ltd. ]
+SPDX-License-Identifier: Apache-2.0
+
+Trivy
+Copyright 2019-2020 Aqua Security Software Ltd. 
+
+This product includes software developed by Aqua Security (https://aquasec.com).
+----
+This product includes protobuf files derived from the Protobom project.
+Project URL: https://github.com/protobom/protobom
+
+Copyright [2024] [The Protobom Authors]
+SPDX-License-Identifier: Apache-2.0

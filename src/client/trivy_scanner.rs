@@ -11,6 +11,7 @@ use hyper_util::client::legacy::connect::HttpConnector;
 use packageurl::PackageUrl;
 use prost::Message;
 use rustls_pki_types::pem::PemObject;
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use tower::{Service, ServiceExt};
 use trivy::{
@@ -28,7 +29,10 @@ use crate::{
         },
     },
     error::ErrorMsg,
-    model::{CdxBom, HashAlg, LicenseChoiceUrl, TRIVY_PROXY_PK},
+    model::{
+        CdxBom, HashAlg, LicenseChoiceUrl, TRIVY_PROXY_PK, Vulnerability,
+        VulnerabilityItemAffectsItemVersionsVariant0,
+    },
 };
 //use api::{publisher_client::PublisherClient, ListTopicsRequest};
 
@@ -47,7 +51,10 @@ pub struct TrivyErrorResponse {
 /**
  * Client integration with a trivy server.
  */
-pub async fn scan_cdx(cdx: &CdxBom, lang: &String) -> core::result::Result<(), ErrorMsg> {
+pub async fn scan_cdx(
+    cdx: &CdxBom,
+    lang: &String,
+) -> core::result::Result<Vec<crate::model::bom::Vulnerability>, ErrorMsg> {
     let blob_infos: Vec<BlobInfo> = match cdx.to_trivy_blob_info() {
         Ok(blobs) => blobs,
         Err((validation_error, arg_map_opt)) => {
@@ -63,11 +70,16 @@ pub async fn scan_cdx(cdx: &CdxBom, lang: &String) -> core::result::Result<(), E
         }
     };
 
-    scan_blob_infos(&blob_infos).await?;
-    Ok(())
+    let vulnerabilities: Vec<crate::model::bom::Vulnerability> =
+        scan_blob_infos(&blob_infos).await?;
+    Ok(vulnerabilities)
 }
 
-pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result<(), ErrorMsg> {
+pub async fn scan_blob_infos(
+    blob_infos: &Vec<BlobInfo>,
+) -> core::result::Result<Vec<crate::model::bom::Vulnerability>, ErrorMsg> {
+    let mut vulnerabilities: Vec<Vulnerability> = vec![];
+
     let results: Vec<trivy::Result> = vec![];
 
     for blob_info in blob_infos {
@@ -100,10 +112,6 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         let mut buf = Vec::new();
         prost::Message::encode(&put_blob_http, &mut buf)?;
 
-        //protoc --decode=trivy.cache.v1.PutBlobRequest cache.proto < your_request.bin
-        //sudo tcpdump -i any port 10000 -c 100 -w trivy.pcap
-        //sudo tcpdump -i any port 10000 -c 100 -w sbking.pcap
-
         // Print the buf to a JSON format
         //let json_str = serde_json::to_string_pretty(&put_blob_http).unwrap();
         //println!("PutBlobRequest JSON: {}", json_str);
@@ -131,7 +139,6 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         let port = url.port_u16().unwrap_or(80);
         let addr = format!("{}:{}", host, port);
         */
-        let url = String::from("http://127.0.0.1:10000");
         let stream = tokio::net::TcpStream::connect(String::from("127.0.0.1:10000")).await?;
         let io = hyper_util::rt::TokioIo::new(stream);
 
@@ -141,8 +148,12 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
                 println!("Connection failed: {:?}", err);
             }
         });
-
+        //Working for HTTP 1.1
         let mut response = sender.send_request(request).await?;
+
+        //get_hyper_client
+        //let mut response = get_hyper_client()?.ready().await?.call(request).await?;
+        //let mut response = get_hyper_client_unsecure().await?.ready().await?.call(request).await?;
         /*
         let response = if String::from("true").eq(&prod) {
             tracing::info!("Before calling get_hyper_client");
@@ -288,6 +299,19 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
                 for custom_resource in &result.custom_resources {
                     println!("  custom_resource file_path: {}", custom_resource.file_path);
                 }
+
+                for vulnerability in &result.vulnerabilities {
+                    //println!("vulnerability.description: {}", vulnerability.description);
+
+                    match vulnerability.to_cdx_vulnerability() {
+                        Ok(cdx_vulnerability) => vulnerabilities.push(cdx_vulnerability),
+                        Err(error) => {
+                            println!("to_cdx_vulnerability error: {}", error.title);
+                            tracing::error!("to_cdx_vulnerability {} ", error.title);
+                            return Err(error);
+                        }
+                    }
+                }
             }
             //let str = String::from_utf8(body_bytes.to_vec())?;
             //tracing::info!("else Scan Body bytes {} ", str);
@@ -323,7 +347,7 @@ pub async fn scan_blob_infos(blob_infos: &Vec<BlobInfo>) -> core::result::Result
         //results.append(blob_scan_result);
     }
 
-    Ok(())
+    Ok(vulnerabilities)
 }
 
 pub struct MyTrivyImpl {}
@@ -743,101 +767,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 */
-
-/**
-* protoc --decode=trivy.rpc.v1.PutBlobRequest trivy.proto < trivy.bin
-diff_id: "sha256:25CAF220606342A5233AB13A8E719EE39606B27A41258467A31C1ED1D4347845"
-blob_info {
-  schema_version: 2
-  os {
-    family: "centos"
-    name: "7.6.1810"
-  }
-  package_infos {
-    name: "bash"
-    version: "4.2.46-31.el7"
-    release: "1"
-    epoch: 1
-    arch: "x86_64"
-    src_name: "src"
-    src_version: "1.2.3"
-    src_release: "1"
-    src_epoch: 1
-    id: "rpmbash4.2.46-31.el7"
-    digest: "ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
-    indirect: true
-  }
-  digest: "ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
-  diff_id: "sha256:25CAF220606342A5233AB13A8E719EE39606B27A41258467A31C1ED1D4347845"
-  size: 7
-}
-
-Copilot proposal
-
-diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
-blob_info {
-  schema_version: 2
-
-  os {
-    family: "centos"
-    name: "centos"
-    version: "7.6.1810"
-  }
-
-  package_infos {
-    id: "bash@4.2.46-31.el7.x86_64"
-    name: "bash"
-    version: "4.2.46"
-    release: "31.el7"
-    epoch: 0
-    arch: "x86_64"
-
-    src_name: "bash"
-    src_version: "4.2.46"
-    src_release: "31.el7"
-    src_epoch: 0
-
-    licenses: "GPLv3+"
-
-    file_path: "/usr/bin/bash"
-    digest: "sha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
-
-    layer {
-      diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
-      digest: "sha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133b"
-    }
-
-    indirect: false
-    dev: false
-  }
-
-  diff_id: "sha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4a"
-  size: 7
-}
-
-
-
-               E �~(@ @�    �'�"p"V�� @�  
-������POST /twirp/trivy.cache.v1.Cache/PutBlob HTTP/1.1
-Host: 127.0.0.1:10000
-User-Agent: trivy/0.68.2
-Content-Length: 924
-Accept: application/protobuf
-Content-Type: application/protobuf
-Twirp-Version: v8.1.3
-Accept-Encoding: gzip
-
-
-Gsha256:387882a972793c86b45be8312421a24dab3c292110a28e4292062d1d6d4da443�
-centos7.6.1810��
-bash4.2.4631.el7*x86_642bash:4.2.46B31.el7Z�
-Gsha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133bGsha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4ajbash@4.2.46-31.el7.x86_64zGPLv3+��
-Dpkg:rpm/centos/bash@4.2.46-31.el7?arch=x86_64&distro=centos-7.6.1810Dpkg:rpm/centos/bash@4.2.46-31.el7?arch=x86_64&distro=centos-7.6.1810�
-openssl-libs1.0.2k16.el7 *x86_642openssl:1.0.2kB16.el7HZ�
-Gsha256:ac9208207adaac3a48e54a4dc6b49c69e78c3072d2b3add7efdabf814db2133bGsha256:89169d87dbe2b72ba42bfbb3579c957322baca28e03a1e558076542a1c1b2b4aj!openssl-libs@1.0.2k-16.el7.x86_64zOpenSSL+��
-Tpkg:rpm/centos/openssl-libs@1.0.2k-16.el7?arch=x86_64&distro=centos-7.6.1810&epoch=1Tpkg:rpm/centos/openssl-libs@1.0.2k-16.el7?arch=x86_64&epoch=1&distro=centos-7.6.1810
-
-
+/*
 https://protobuf-decoder.netlify.app/
 
 0a477368613235363a333837383832613937323739336338366234356265383331323432316132346461623363323932313130613238653432393230363264316436643464613434331ad006080212120a0663656e746f731208372e362e313831301ab70612fc020a04626173681206342e322e34361a0633312e656c372a067838365f36343204626173683a06342e322e3436420633312e656c375a92010a477368613235363a6163393230383230376164616163336134386535346134646336623439633639653738633330373264326233616464376566646162663831346462323133336212477368613235363a383931363964383764626532623732626134326266626233353739633935373332326261636132386530336131653535383037363534326131633162326234616a196261736840342e322e34362d33312e656c372e7838365f36347a0647504c76332b9a018c010a44706b673a72706d2f63656e746f732f6261736840342e322e34362d33312e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e313831301244706b673a72706d2f63656e746f732f6261736840342e322e34362d33312e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e3138313012b5030a0c6f70656e73736c2d6c6962731206312e302e326b1a0631362e656c3720012a067838365f363432076f70656e73736c3a06312e302e326b420631362e656c3748015a92010a477368613235363a6163393230383230376164616163336134386535346134646336623439633639653738633330373264326233616464376566646162663831346462323133336212477368613235363a383931363964383764626532623732626134326266626233353739633935373332326261636132386530336131653535383037363534326131633162326234616a216f70656e73736c2d6c69627340312e302e326b2d31362e656c372e7838365f36347a084f70656e53534c2b9a01ac010a54706b673a72706d2f63656e746f732f6f70656e73736c2d6c69627340312e302e326b2d31362e656c373f617263683d7838365f36342664697374726f3d63656e746f732d372e362e313831302665706f63683d311254706b673a72706d2f63656e746f732f6f70656e73736c2d6c69627340312e302e326b2d31362e656c373f617263683d7838365f36342665706f63683d312664697374726f3d63656e746f732d372e362e31383130
@@ -1215,5 +1145,124 @@ impl CdxBom {
         }
 
         Ok(blob_infos)
+    }
+}
+
+impl crate::client::trivy::Vulnerability {
+    /**
+     * Convert a Trivy vulnerability scan result into a CycloneDX vulnerability (VDR, VEX).
+     * TODO it remains fields to fill.
+     * https://cyclonedx.org/use-cases/security/
+     */
+    pub fn to_cdx_vulnerability(&self) -> Result<crate::model::Vulnerability, ErrorMsg> {
+        let mut cwe_ids: Vec<crate::model::Cwe> = vec![];
+
+        for cwe_id in &self.cwe_ids {
+            match cwe_id.to_string().parse::<i64>() {
+                Ok(cwe_int) => cwe_ids.push(cwe_int),
+                Err(_e) => {}
+            }
+        }
+
+        let advisories: Option<Vec<crate::model::Advisory>> = None;
+
+        //let json_string = format!(r#""{}""#, self.pkg_name); // Wrap the string in quotes for valid JSON
+        //let json_value: Value = from_str(&json_string)?;
+
+        //let v = json!("a string");
+        let affects: Option<Vec<crate::model::VulnerabilityItemAffects>> =
+            Some(vec![crate::model::VulnerabilityItemAffects {
+                //ref_: serde_json::Value::String(serde_json::from_str(&self.pkg_name.to_string())?),
+                ref_: json!(&self.pkg_name.to_string()),
+                versions: Some(vec![
+                    crate::model::VulnerabilityItemAffectsItemVersions::Variant0(json!(
+                        &self.installed_version.to_string()
+                    )),
+                ]),
+                /*
+                versions: Some(vec![
+                    crate::model::VulnerabilityItemAffectsItemVersions::Variant0(
+                        serde_json::Value::String(serde_json::from_str(
+                            &self.installed_version.to_string(),
+                        )?),
+                    ),
+                ]),
+                 */
+            }]);
+        let analysis: Option<crate::model::VulnerabilityAnalysis> =
+            Some(crate::model::VulnerabilityAnalysis {
+                detail: None,
+                first_issued: match self.published_date {
+                    Some(published_date) => Some(published_date.to_string()),
+                    None => None,
+                },
+                justification: None,
+                last_updated: match self.last_modified_date {
+                    Some(last_modified_date) => Some(last_modified_date.to_string()),
+                    None => None,
+                },
+                response: None,
+                state: None,
+            });
+        let bom_ref: Option<crate::model::RefType> = match &self.pkg_identifier {
+            Some(pkg_identifier) => Some(pkg_identifier.bom_ref.clone()),
+            None => None,
+        };
+        let created: Option<String> = None;
+        let credits: Option<crate::model::VulnerabilityCredits> = None;
+        let cwes: Option<Vec<crate::model::Cwe>> = Some(cwe_ids);
+        let description: Option<String> = Some(self.title.to_string());
+        let detail: Option<String> = Some(self.description.to_string());
+        let id: Option<String> = Some(self.vulnerability_id.clone());
+        let proof_of_concept: Option<crate::model::VulnerabilityProofOfConcept> = None;
+        let properties: Option<Vec<crate::model::Property>> = None;
+        let published: Option<String> = None;
+        let ratings: Option<Vec<crate::model::Rating>> = Some(vec![crate::model::Rating {
+            justification: None,
+            method: None,
+            score: None,
+            severity: None, //Some(crate::model::Severity::Low),
+            source: Some(crate::model::VulnerabilitySource {
+                name: Some(self.severity_source.clone()),
+                url: None,
+            }),
+            vector: None,
+        }]);
+        let recommendation: Option<String> = None;
+        let references: Option<Vec<crate::model::VulnerabilityItemReferences>> = None;
+        let rejected: Option<String> = None;
+        let source: Option<crate::model::VulnerabilitySource> =
+            Some(crate::model::VulnerabilitySource {
+                name: Some(String::from("Trivy")),
+                url: Some(self.primary_url.clone()),
+            });
+        let tools: Option<crate::model::VulnerabilityTools> = None;
+        let updated: Option<String> = None;
+        let workaround: Option<String> = None;
+
+        let vulnerability: crate::model::Vulnerability = crate::model::Vulnerability {
+            advisories,
+            affects,
+            analysis,
+            bom_ref,
+            created,
+            credits,
+            cwes,
+            description,
+            detail,
+            id,
+            proof_of_concept,
+            properties,
+            published,
+            ratings,
+            recommendation,
+            references,
+            rejected,
+            source,
+            tools,
+            updated,
+            workaround,
+        };
+        Ok(vulnerability)
     }
 }
