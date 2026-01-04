@@ -23,7 +23,8 @@ pub fn scan_router() -> Router<AppState> {
 }
 
 /**
- *
+ * Only a simple scan used for pr scanning.
+ * It does not update the package. See /v1/bom to update product and package version.
  */
 pub async fn get_scan(
     State(state): State<AppState>,

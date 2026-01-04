@@ -1,3 +1,4 @@
+original-sbom-required = The original sbom is required
 category-gender-range = Gender range from { $min } to { $max }
 category-missing-knockout-rule = The category is missing a knockout rule
 category-missing-match-rule = The category is missing a match rule

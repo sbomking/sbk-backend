@@ -4,6 +4,13 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Pool, Postgres};
 use validator::Validate;
 
+pub trait ValidateModel {
+    fn validate_and_get_message(&self, lang: &str) -> Result<(), String>;
+    fn validate_all(&self) -> Result<(), (&str, Option<HashMap<String, String>>)>;
+}
+
+/*impl ValidateModel for WsId*/
+
 #[derive(Clone /*, FromRef*/)]
 pub struct AppState {
     pub(crate) pool: Pool<Postgres>,

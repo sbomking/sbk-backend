@@ -6,14 +6,16 @@ use sqlx::{Postgres, Transaction, postgres::PgPool};
 
 pub async fn insert_product(
     tx: &mut Transaction<'static, Postgres>,
-    product: &EnTitle,
-) -> Result<i16, sqlx::Error> {
+    product: &EnProduct,
+) -> Result<i32, sqlx::Error> {
     let title = ammonia::clean(&product.title);
 
-    let row: (i16,) = sqlx::query_as("INSERT INTO product(title) VALUES ($1) returning id")
-        .bind(&title)
-        .fetch_one(&mut **tx)
-        .await?;
+    let row: (i32,) =
+        sqlx::query_as("INSERT INTO product(title,product_line_id) VALUES ($1,$2) returning id")
+            .bind(&title)
+            .bind(product.product_line_id)
+            .fetch_one(&mut **tx)
+            .await?;
     Ok(row.0)
 }
 
@@ -43,4 +45,19 @@ pub async fn select_product_by_product_line_id(
     .fetch_all(pool)
     .await?;
     Ok(items)
+}
+
+pub async fn select_product_by_title_product_line_id(
+    tx: &mut Transaction<'static, Postgres>,
+    title: &String,
+    product_line_id: &i16,
+) -> Result<EnProduct, ErrorMsg> {
+    let item: EnProduct = sqlx::query_as::<_, EnProduct>(
+        "SELECT id, title, product_line_id FROM product where title=$1 and product_line_id=$2",
+    )
+    .bind(title)
+    .bind(product_line_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    Ok(item)
 }

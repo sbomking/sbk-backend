@@ -300,6 +300,7 @@ pub async fn scan_blob_infos(
                     println!("  custom_resource file_path: {}", custom_resource.file_path);
                 }
 
+                println!("Number of vulnerability: {}", &result.vulnerabilities.len());
                 for vulnerability in &result.vulnerabilities {
                     //println!("vulnerability.description: {}", vulnerability.description);
 
@@ -1151,7 +1152,7 @@ impl CdxBom {
 impl crate::client::trivy::Vulnerability {
     /**
      * Convert a Trivy vulnerability scan result into a CycloneDX vulnerability (VDR, VEX).
-     * TODO it remains fields to fill.
+     * TODO it remains fields to fill. Fixed version? &self.vendor_severity? cvss
      * https://cyclonedx.org/use-cases/security/
      */
     pub fn to_cdx_vulnerability(&self) -> Result<crate::model::Vulnerability, ErrorMsg> {
@@ -1217,11 +1218,18 @@ impl crate::client::trivy::Vulnerability {
         let proof_of_concept: Option<crate::model::VulnerabilityProofOfConcept> = None;
         let properties: Option<Vec<crate::model::Property>> = None;
         let published: Option<String> = None;
+
         let ratings: Option<Vec<crate::model::Rating>> = Some(vec![crate::model::Rating {
             justification: None,
             method: None,
             score: None,
-            severity: None, //Some(crate::model::Severity::Low),
+            severity: Some(match &self.severity {
+                1 => crate::model::Severity::Low,
+                2 => crate::model::Severity::Medium,
+                3 => crate::model::Severity::High,
+                4 => crate::model::Severity::Critical,
+                _ => crate::model::Severity::Unknown,
+            }),
             source: Some(crate::model::VulnerabilitySource {
                 name: Some(self.severity_source.clone()),
                 url: None,

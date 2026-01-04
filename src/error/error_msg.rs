@@ -58,10 +58,10 @@ pub fn unauthorized_error(lang: &WsUserLang) -> ErrorMsg {
     }
 }
 
-pub fn simple_error(title: &String) -> ErrorMsg {
+pub fn simple_error(title: &String, status: &StatusCode) -> ErrorMsg {
     ErrorMsg {
         title: title.to_string(),
-        status: StatusCode::CONFLICT.as_u16(),
+        status: status.as_u16(),
         _type: None,
         detail: None,
         instance: None,
@@ -200,9 +200,6 @@ impl From<hyper::Error> for ErrorMsg {
     }
 }
 
-
-
-
 impl From<std::io::Error> for ErrorMsg {
     fn from(inner: std::io::Error) -> Self {
         tracing::error!("io::Error error {:?}", inner);
@@ -251,7 +248,6 @@ impl From<prost::DecodeError> for ErrorMsg {
     }
 }
 
-
 impl From<tonic::Status> for ErrorMsg {
     fn from(inner: tonic::Status) -> Self {
         tracing::error!("tonic::Status error {:?}", inner);
@@ -282,7 +278,7 @@ impl From<std::io::Error> for tonic::Status {
      */
 
 //tonic::Status` implements `From<>`
-  //`tonic::Status` implements `From<std::io::Error
+//`tonic::Status` implements `From<std::io::Error
 
 impl From<serde_urlencoded::ser::Error> for ErrorMsg {
     fn from(inner: serde_urlencoded::ser::Error) -> Self {
@@ -330,5 +326,3 @@ impl IntoResponse for ErrorMsg {
         (status, body).into_response()
     }
 }
-
-

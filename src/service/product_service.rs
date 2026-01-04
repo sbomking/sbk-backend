@@ -105,7 +105,8 @@ pub async fn post_product(
     */
 
     let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
-    let id: i16 = facade::insert_product(&mut tx, &product_line).await?;
+    //let id: i16 = facade::insert_product(&mut tx, &product_line).await?;
+    let id: i16 = 0;
     tx.commit().await?;
 
     let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
