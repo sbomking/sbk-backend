@@ -1,7 +1,7 @@
 use crate::{
     error::ErrorMsg,
     facade::{self, select_product_line_by_id},
-    model::{AppState, EnProduct, EnProductLine, EnTitle, UserClaims, WsUserLang},
+    model::{AppState, EnProduct, EnProductLine, EnTitle, ReProduct, UserClaims, WsUserLang},
 };
 use axum::extract::State;
 use axum::{
@@ -15,12 +15,13 @@ use sqlx::{Postgres, Transaction};
 pub fn product_router() -> Router<AppState> {
     Router::new()
         .route(
-            "/v1/product_lines/{id}/products/{id}",
+            "/api/v1/product_lines/{id}/products/{id}",
             delete(delete_product),
         )
-        .route("/v1/product_lines/{id}/products", get(get_products))
-        .route("/v1/product_lines/{id}/products", post(post_product))
-        .route("/v1/product_lines/{id}/products/{id}", put(put_product))
+        .route("/api/v1/product_lines/{id}/products", get(get_products))
+        .route("/api/v1/product_lines/{id}/products/{id}", get(get_product))
+        .route("/api/v1/product_lines/{id}/products", post(post_product))
+        .route("/api/v1/product_lines/{id}/products/{id}", put(put_product))
 }
 
 /*
@@ -53,6 +54,15 @@ pub async fn get_products(
 ) -> Result<Json<Vec<EnProduct>>, ErrorMsg> {
     let result: Vec<EnProduct> =
         facade::select_product_by_product_line_id(&state.pool, &pl_id).await?;
+    Ok(Json(result))
+}
+
+pub async fn get_product(
+    State(state): State<AppState>,
+    Path((_product_line_id, product_id)): Path<(i16, i32)>,
+) -> Result<Json<Vec<ReProduct>>, ErrorMsg> {
+    let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
+    let result: Vec<ReProduct> = facade::select_reproduct_by_id(&mut tx, &product_id).await?;
     Ok(Json(result))
 }
 

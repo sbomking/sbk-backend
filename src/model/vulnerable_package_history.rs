@@ -11,13 +11,18 @@ pub struct EnVulnerablePackageHistory {
     pub medium: i16,
     pub low: i16,
     pub info: i16,
+    #[serde(alias = "_unknown", rename = "_unknown")]
     pub unknown: i16,
+    #[serde(alias = "_none", rename = "_none")]
     pub none: i16,
     pub created_date: chrono::DateTime<chrono::Utc>,
     pub package_version_id: i64,
 }
 
 impl EnVulnerablePackageHistory {
+    /**
+     * Fills the vulnerabilities (critical, high, medium, low, info, unknown, none) from the CycloneDX ratings severity.
+     */
     pub fn update_vulnerable_package_history(
         &mut self,
         vulnerabilities: &Vec<Vulnerability>,
@@ -53,5 +58,21 @@ impl EnVulnerablePackageHistory {
                 None => {}
             }
         }
+    }
+
+    /**
+     * Has any of the vulnerabilities (critical, high, medium, low, info, unknown, none) changed?
+     */
+    pub fn has_vulnerability_changed(
+        &self,
+        vulnerable_package_history: &EnVulnerablePackageHistory,
+    ) -> bool {
+        return !(self.critical == vulnerable_package_history.critical
+            && self.high == vulnerable_package_history.high
+            && self.medium == vulnerable_package_history.medium
+            && self.low == vulnerable_package_history.low
+            && self.info == vulnerable_package_history.info
+            && self.unknown == vulnerable_package_history.unknown
+            && self.none == vulnerable_package_history.none);
     }
 }

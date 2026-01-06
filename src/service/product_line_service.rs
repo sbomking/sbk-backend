@@ -12,13 +12,12 @@ use axum::{
 };
 use sqlx::{Postgres, Transaction};
 
-
 pub fn product_line_router() -> Router<AppState> {
     Router::new()
-        .route("/v1/product_lines/{id}", delete(delete_product_line))
-        .route("/v1/product_lines", get(get_product_lines))
-        .route("/v1/product_lines", post(post_product_line))
-        .route("/v1/product_lines/{id}", put(put_product_lines))
+        .route("/api/v1/product_lines/{id}", delete(delete_product_line))
+        .route("/api/v1/product_lines", get(get_product_lines))
+        .route("/api/v1/product_lines", post(post_product_line))
+        .route("/api/v1/product_lines/{id}", put(put_product_lines))
 }
 
 pub async fn get_product_lines(
@@ -80,7 +79,6 @@ pub async fn post_product_line(
     let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
     Ok(Json(select_product_line_by_id(&mut tx, &id).await?))
 }
-
 
 pub async fn delete_product_line(
     State(state): State<AppState>,

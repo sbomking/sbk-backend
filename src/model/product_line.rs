@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
+use crate::model::EnPackage;
+
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct EnProductLine {
     pub id: i16,

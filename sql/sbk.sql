@@ -136,8 +136,8 @@ CREATE TABLE sca.vulnerable_package_history
 	medium               SMALLINT NOT NULL DEFAULT 0,
 	low                  SMALLINT NOT NULL DEFAULT 0,
 	info                 SMALLINT NOT NULL DEFAULT 0,
-	unknown              SMALLINT NOT NULL DEFAULT 0,
-	none                 SMALLINT NOT NULL DEFAULT 0,
+	_unknown              SMALLINT NOT NULL DEFAULT 0,
+	_none                 SMALLINT NOT NULL DEFAULT 0,
 	created_date         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 	package_version_id   BIGINT NOT NULL,
 	CONSTRAINT vulnerable_package_history_fk_package_version FOREIGN KEY (package_version_id) REFERENCES sca.package_version ON DELETE CASCADE

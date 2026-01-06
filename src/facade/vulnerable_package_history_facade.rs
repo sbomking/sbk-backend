@@ -12,9 +12,9 @@ use sqlx::{Postgres, Transaction, postgres::PgPool};
 pub async fn insert_vulnerable_package_history(
     tx: &mut Transaction<'static, Postgres>,
     vulnerable_package_history: &EnVulnerablePackageHistory,
-) -> Result<i32, sqlx::Error> {
-    let row: (i32,) = sqlx::query_as(
-        "INSERT INTO vulnerable_package_history(critical,high,medium,low,info,unknown,none,created_date,package_version_id) VALUES ($1,$2,$3,$4,$5,$6,$7) returning id",
+) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "INSERT INTO vulnerable_package_history(critical,high,medium,low,info,_unknown,_none,created_date,package_version_id) VALUES ($1,$2,$3,$4,$5,$6,$7) returning id",
     )
     .bind(&vulnerable_package_history.critical)
     .bind(&vulnerable_package_history.high)
@@ -33,7 +33,7 @@ pub async fn select_vulnerable_package_history_by_package_version_id(
     package_version_id: &i64,
 ) -> Result<Vec<EnVulnerablePackageHistory>, ErrorMsg> {
     let items: Vec<EnVulnerablePackageHistory> = sqlx::query_as::<_, EnVulnerablePackageHistory>(
-        "SELECT id,critical,high,medium,low,info,unknown,none,created_date,package_version_id FROM vulnerable_package_history
+        "SELECT id,critical,high,medium,low,info,_unknown,_none,created_date,package_version_id FROM vulnerable_package_history
          where package_version_id=$1",
     )
     .bind(package_version_id)
@@ -47,7 +47,7 @@ pub async fn select_latest_vulnerable_package_history_by_package_version_id(
     package_version_id: &i64,
 ) -> Result<EnVulnerablePackageHistory, ErrorMsg> {
     let item: EnVulnerablePackageHistory = sqlx::query_as::<_, EnVulnerablePackageHistory>(
-        "SELECT id,critical,high,medium,low,info,unknown,none,created_date,package_version_id FROM vulnerable_package_history
+        "SELECT id,critical,high,medium,low,info,_unknown,_none,created_date,package_version_id FROM vulnerable_package_history
          where package_version_id=$1 ORDER BY created_date DESC LIMIT 1",
     )
     .bind(package_version_id)

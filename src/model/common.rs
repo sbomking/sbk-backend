@@ -62,6 +62,7 @@ pub struct WsUserLang {
 pub struct UserClaims {
     pub(crate) sub: String,
     pub(crate) security: bool,
+    //pub(crate) upload_bom: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -15,11 +15,13 @@ pub struct InsSbom {
 /**
  * The original SBOM can be in CycloneDx or SPDX format.
  * The enriched will be converted to CycloneDX and enriched with vulnerabilities.
+ *
+ * Option<sqlx::types::Json<CdxBom>> should be working but if the original sbom is an spdx, it will not work.
  */
 #[derive(Serialize, Deserialize, FromRow, Validate)]
 pub struct EnSbom {
     pub id: i64,
-    pub sbom_enriched: Option<sqlx::types::Json<CdxBom>>,
+    pub sbom_enriched: Option<sqlx::types::Json<String>>,
     pub sbom_original: Option<sqlx::types::Json<String>>, //sqlx::types::Json<serde_json::Value>,
     pub s3_uuid_enriched: Option<String>,
     pub s3_uuid_original: Option<String>,

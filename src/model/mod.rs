@@ -4,6 +4,7 @@ mod constant;
 mod deployment_environment;
 mod package;
 mod product_line;
+mod request_response;
 mod sbom;
 mod vulnerable_package_history;
 
@@ -13,5 +14,6 @@ pub use constant::*;
 pub use deployment_environment::*;
 pub use package::*;
 pub use product_line::*;
+pub use request_response::*;
 pub use sbom::*;
 pub use vulnerable_package_history::*;

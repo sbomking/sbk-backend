@@ -1,46 +1,45 @@
 use crate::{
     error::ErrorMsg,
-    facade::{self, insert_product_line, select_product_line_by_id},
+    facade::{self},
     model::{
-        AppState, CdxBom, EnPackage, EnPackageVersion, EnProduct, EnProductLine, EnSbom, EnTitle,
-        UserClaims, WsUserLang,
+        AppState, CdxBom, EnPackage, EnPackageVersion, EnProduct, EnSbom, EnTitle,
+        EnVulnerablePackageHistory, UserClaims, WsUserLang,
     },
-    util::{get_message, validate_entity},
 };
 use axum::extract::{Multipart, State};
-use axum::{
-    Router,
-    extract::{Json as JsonExtract, Query},
-    response::Json,
-    routing::post,
-};
+use axum::{Router, extract::Query, response::Json, routing::post};
+use chrono::Utc;
 use hyper::StatusCode;
 use sha2::Digest;
 use sqlx::{Postgres, Transaction};
 
 pub fn bom_router() -> Router<AppState> {
     //Router::new().route("/v1/product_lines/{id}/products/{id}/bom", post(post_bom))
-    Router::new().route("/v1/bom", post(post_bom))
+    Router::new().route("/api/v1/bom", post(post_bom))
 }
 
 /**
-* TODO think about passing an API KEY or token for CI/CD integration.
-* curl -X POST http://localhost:xxxx/v1/bom \
-  -H "Content-Type: multipart/form-data" \
-  -F "productline=productline" \
-  -F "product=product" \
-  -F "package=package" \
-  -F "version=version" \
-  -F "environment=environment" \
-  -F "bom=@target/bom.xml"
+ * TODO translated error message.
+ * TODO Must be able to send XML data as well.
+ * TODO think about passing an API KEY or bearer token for CI/CD integration.
+ * curl -X POST http://localhost:xxxx/v1/bom \
+   -H "Content-Type: multipart/form-data" \
+   -F "productline=productline" \
+   -F "product=product" \
+   -F "package=package" \
+   -F "version=version" \
+   -F "environment=environment" \
+   -F "bom=@target/bom.json"
 */
 pub async fn post_bom(
     State(state): State<AppState>,
     Query(lang): Query<WsUserLang>,
     claims: UserClaims,
     mut multipart: Multipart,
-) -> Result<Json<Vec<crate::model::Vulnerability>>, ErrorMsg> {
-    let mut vulnerabilities: Vec<crate::model::Vulnerability> = vec![];
+) -> Result<Json<EnVulnerablePackageHistory>, ErrorMsg> {
+    if !claims.security {
+        return Err(crate::error::unauthorized_error(&lang));
+    }
 
     let mut product_line_id: i16 = 0;
 
@@ -83,7 +82,7 @@ pub async fn post_bom(
                         product = Some(field_str);
                     }
                     "package" => {
-                        product = Some(field_str);
+                        package = Some(field_str);
                     }
                     "version" => {
                         package_version = Some(field_str);
@@ -162,16 +161,29 @@ pub async fn post_bom(
         }
     };
 
+    let mut vulnerable_package_history: EnVulnerablePackageHistory = EnVulnerablePackageHistory {
+        id: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+        unknown: 0,
+        none: 0,
+        created_date: Utc::now(),
+        package_version_id: 0,
+    };
+
     let sbom_id: i64 = match cdx_bom {
-        Some(sbom) => match facade::select_sbom_by_sha(&mut tx, &bom_hex_sha256).await {
-            Ok(en_sbom) => {
+        Some(mut sbom) => match facade::select_sbom_by_sha(&mut tx, &bom_hex_sha256).await {
+            Ok(_en_sbom) => {
                 return Err(crate::error::simple_error(
                     &String::from("Bom already uploaded"),
                     &StatusCode::CONFLICT,
                 ));
             }
             Err(_) => {
-                let new_sbom: EnSbom = EnSbom {
+                let mut new_sbom: EnSbom = EnSbom {
                     id: 0,
                     sbom_enriched: None,
                     sbom_original: Some(sqlx::types::Json(serde_json::to_string(&sbom)?)),
@@ -179,8 +191,12 @@ pub async fn post_bom(
                     s3_uuid_enriched: None,
                 };
 
-                vulnerabilities = crate::client::scan_cdx(&sbom, &lang.lang).await?;
-                //TODO enrich the SBOM
+                let vulnerabilities: Vec<crate::model::Vulnerability> =
+                    crate::client::scan_cdx(&sbom, &lang.lang).await?;
+                vulnerable_package_history.update_vulnerable_package_history(&vulnerabilities);
+
+                sbom.vulnerabilities = Some(vulnerabilities);
+                new_sbom.sbom_enriched = Some(sqlx::types::Json(serde_json::to_string(&sbom)?));
                 facade::insert_sbom(&mut tx, &new_sbom).await?
             }
         },
@@ -197,7 +213,7 @@ pub async fn post_bom(
             match facade::select_package_version_by_title_package_id(
                 &mut tx,
                 &package_version_title,
-                &product_id,
+                &package_id,
             )
             .await
             {
@@ -221,66 +237,32 @@ pub async fn post_bom(
             ));
         }
     };
-    /*
-    match facade::select_latest_vulnerable_package_history_by_package_version_id(
-        &mut tx,
-        package_version_id,
-    )
-    .await
-    {
-        Ok(vulnerable_package_history) => {
+    vulnerable_package_history.package_version_id = package_version_id;
 
-        },
-        Err(_) => {
+    let vulnerable_package_history_id: i64 =
+        match facade::select_latest_vulnerable_package_history_by_package_version_id(
+            &mut tx,
+            &package_version_id,
+        )
+        .await
+        {
+            Ok(latest_vulnerable_package_history) => {
+                if vulnerable_package_history
+                    .has_vulnerability_changed(&latest_vulnerable_package_history)
+                {
+                    facade::insert_vulnerable_package_history(&mut tx, &vulnerable_package_history)
+                        .await?
+                } else {
+                    latest_vulnerable_package_history.id
+                }
+            }
+            Err(_) => {
+                facade::insert_vulnerable_package_history(&mut tx, &vulnerable_package_history)
+                    .await?
+            }
+        };
+    vulnerable_package_history.id = vulnerable_package_history_id;
 
-        },
-    }
-     */
-
-    //select latest package_history...
-    //use the function with the vulnerabilties in the function.
-    // comapre them.
-    // equals, not equals,...
     tx.commit().await?;
-
-    //let result: Vec<EnProduct> = facade::select_product_by_product_line_id(&state.pool, &1).await?;
-    //TODO we should only return (uknown: 0, low,: ,....)
-    Ok(Json(vulnerabilities))
+    Ok(Json(vulnerable_package_history))
 }
-
-/*
-pub async fn post_bom(
-    State(state): State<AppState>,
-    Query(lang): Query<WsUserLang>,
-    claims: UserClaims,
-    JsonExtract(product_line): JsonExtract<EnTitle>,
-) -> Result<Json<EnProductLine>, ErrorMsg> {
-    if !claims.security {
-        return Err(crate::error::unauthorized_error(&lang));
-    }
-
-
-    match validate_entity(&product_line, &lang.lang).first() {
-        Some(validation_error) => {
-            return Err(ErrorMsg {
-                title: validation_error.to_string(),
-                status: StatusCode::CONFLICT.as_u16(),
-                _type: None,
-                detail: None,
-                instance: None,
-                code: None,
-                errors: vec![],
-            });
-        }
-        None => {}
-    };
-
-
-    let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
-    let id: i16 = facade::insert_product(&mut tx, &product_line).await?;
-    tx.commit().await?;
-
-    let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
-    Ok(Json(select_product_line_by_id(&mut tx, &id).await?))
-}
-*/
