@@ -14,13 +14,15 @@ pub async fn insert_vulnerable_package_history(
     vulnerable_package_history: &EnVulnerablePackageHistory,
 ) -> Result<i64, sqlx::Error> {
     let row: (i64,) = sqlx::query_as(
-        "INSERT INTO vulnerable_package_history(critical,high,medium,low,info,_unknown,_none,created_date,package_version_id) VALUES ($1,$2,$3,$4,$5,$6,$7) returning id",
+        "INSERT INTO vulnerable_package_history(critical,high,medium,low,info,_unknown,_none,created_date,package_version_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id",
     )
     .bind(&vulnerable_package_history.critical)
     .bind(&vulnerable_package_history.high)
     .bind(&vulnerable_package_history.medium)
     .bind(&vulnerable_package_history.low)
+    .bind(&vulnerable_package_history.info)
     .bind(&vulnerable_package_history.unknown)
+    .bind(&vulnerable_package_history.none)
     .bind(&vulnerable_package_history.created_date)
     .bind(&vulnerable_package_history.package_version_id)
     .fetch_one(&mut **tx)

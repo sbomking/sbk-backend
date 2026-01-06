@@ -14,7 +14,7 @@ pub async fn insert_package_version(
     let title = ammonia::clean(&package_version.title);
 
     let row: (i64,) = sqlx::query_as(
-        "INSERT INTO package(title,latest_scan,package_id,sbom_id) VALUES ($1,$2,$3,$4) returning id",
+        "INSERT INTO package_version(title,latest_scan,package_id,sbom_id) VALUES ($1,$2,$3,$4) returning id",
     )
     .bind(&title)
     .bind(&package_version.latest_scan)
@@ -31,7 +31,7 @@ pub async fn select_package_version_by_title_package_id(
     package_id: &i32,
 ) -> Result<EnPackageVersion, ErrorMsg> {
     let item: EnPackageVersion = sqlx::query_as::<_, EnPackageVersion>(
-        "SELECT id,title,latest_scan,package_id,sbom_id FROM product where title=$1 and package_id=$2",
+        "SELECT id,title,latest_scan,package_id,sbom_id FROM package_version where title=$1 and package_id=$2",
     )
     .bind(title)
     .bind(package_id)

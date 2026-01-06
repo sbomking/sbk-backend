@@ -18,6 +18,7 @@ pub async fn insert_sbom(
     .bind(&sbom.sbom_original)
     .bind(&sbom.s3_uuid_enriched)
     .bind(&sbom.s3_uuid_original)
+    .bind(&sbom.sha256)
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.0)

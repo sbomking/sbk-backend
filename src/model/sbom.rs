@@ -25,6 +25,7 @@ pub struct EnSbom {
     pub sbom_original: Option<sqlx::types::Json<String>>, //sqlx::types::Json<serde_json::Value>,
     pub s3_uuid_enriched: Option<String>,
     pub s3_uuid_original: Option<String>,
+    pub sha256: Option<String>,
 }
 
 impl EnSbom {

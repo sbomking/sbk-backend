@@ -14,7 +14,7 @@ pub async fn insert_package(
     let title = ammonia::clean(&package.title);
 
     let row: (i32,) = sqlx::query_as(
-        "INSERT INTO package(title, description, product_id) VALUES ($1) returning id",
+        "INSERT INTO package(title, description, product_id) VALUES ($1,$2,$3) returning id",
     )
     .bind(&title)
     .bind(&package.description)
@@ -62,13 +62,16 @@ pub async fn select_package_by_id(
     Ok(item)
 }
 
+/**
+ * TODO return an option
+ */
 pub async fn select_package_by_title_product_id(
     tx: &mut Transaction<'static, Postgres>,
     title: &String,
     product_id: &i32,
 ) -> Result<EnPackage, ErrorMsg> {
     let item: EnPackage = sqlx::query_as::<_, EnPackage>(
-        "SELECT id, title, description, product_id FROM product where title=$1 and product_id=$2",
+        "SELECT id, title, description, product_id FROM package where title=$1 and product_id=$2",
     )
     .bind(title)
     .bind(product_id)

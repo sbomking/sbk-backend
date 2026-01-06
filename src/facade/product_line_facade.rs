@@ -13,11 +13,10 @@ pub async fn insert_product_line(
 ) -> Result<i16, sqlx::Error> {
     let title = ammonia::clean(&product_line.title);
 
-    let row: (i16,) =
-        sqlx::query_as("INSERT INTO product_line(title, owners) VALUES ($1) returning id")
-            .bind(&title)
-            .fetch_one(&mut **tx)
-            .await?;
+    let row: (i16,) = sqlx::query_as("INSERT INTO product_line(title) VALUES ($1) returning id")
+        .bind(&title)
+        .fetch_one(&mut **tx)
+        .await?;
     Ok(row.0)
 }
 

@@ -17,9 +17,3 @@ pub struct EnPackageVersion {
     pub package_id: i32,
     pub sbom_id: Option<i64>,
 }
-
-#[derive(Serialize, Deserialize, FromRow)]
-pub struct EnPackageVersionDeploymentEnvironment {
-    pub package_version_id: i64,
-    pub deployment_environment_id: i16,
-}

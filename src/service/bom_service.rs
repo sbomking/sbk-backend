@@ -2,7 +2,8 @@ use crate::{
     error::ErrorMsg,
     facade::{self},
     model::{
-        AppState, CdxBom, EnPackage, EnPackageVersion, EnProduct, EnSbom, EnTitle,
+        AppState, CdxBom, EnDeploymentEnvironment, EnPackage, EnPackageVersion,
+        EnPackageVersionDeploymentEnvironment, EnProduct, EnSbom, EnTitle,
         EnVulnerablePackageHistory, UserClaims, WsUserLang,
     },
 };
@@ -22,7 +23,7 @@ pub fn bom_router() -> Router<AppState> {
  * TODO translated error message.
  * TODO Must be able to send XML data as well.
  * TODO think about passing an API KEY or bearer token for CI/CD integration.
- * curl -X POST http://localhost:xxxx/v1/bom \
+ * curl -X POST http://localhost:5002/v1/bom?lang=en \
    -H "Content-Type: multipart/form-data" \
    -F "productline=productline" \
    -F "product=product" \
@@ -34,18 +35,20 @@ pub fn bom_router() -> Router<AppState> {
 pub async fn post_bom(
     State(state): State<AppState>,
     Query(lang): Query<WsUserLang>,
-    claims: UserClaims,
+    //claims: UserClaims,
     mut multipart: Multipart,
 ) -> Result<Json<EnVulnerablePackageHistory>, ErrorMsg> {
-    if !claims.security {
+    /*if !claims.security {
         return Err(crate::error::unauthorized_error(&lang));
     }
+    */
 
     let mut product_line_id: i16 = 0;
 
     let mut product: Option<String> = None;
     let mut package: Option<String> = None;
     let mut package_version: Option<String> = None;
+    let mut environment: Option<String> = None;
 
     let mut cdx_bom: Option<CdxBom> = None;
     let mut bom_hex_sha256: String = String::from("");
@@ -93,6 +96,7 @@ pub async fn post_bom(
                         bom_hex_sha256 = sha2.iter().map(|b| format!("{:02x}", b)).collect();
                         cdx_bom = Some(serde_json::from_str(&field_str)?)
                     }
+                    "environment" => environment = Some(field_str),
                     _ => {
                         let error = String::from(
                             "Supported form data parameters are productline, product, package, version and bom. Unknown: ",
@@ -189,6 +193,7 @@ pub async fn post_bom(
                     sbom_original: Some(sqlx::types::Json(serde_json::to_string(&sbom)?)),
                     s3_uuid_original: None,
                     s3_uuid_enriched: None,
+                    sha256: Some(bom_hex_sha256),
                 };
 
                 let vulnerabilities: Vec<crate::model::Vulnerability> =
@@ -222,7 +227,7 @@ pub async fn post_bom(
                     let new_package_version: EnPackageVersion = EnPackageVersion {
                         id: 0,
                         title: package_version_title,
-                        latest_scan: None,
+                        latest_scan: Some(Utc::now()),
                         package_id,
                         sbom_id: Some(sbom_id),
                     };
@@ -263,6 +268,38 @@ pub async fn post_bom(
         };
     vulnerable_package_history.id = vulnerable_package_history_id;
 
+    let deployment_environment_id: i16 = match environment {
+        Some(env) => match facade::select_deployment_environment_by_title(&mut tx, &env).await? {
+            Some(deployment_environment) => deployment_environment.id.unwrap_or(0),
+            None => {
+                facade::insert_deployment_environment(
+                    &mut tx,
+                    &EnDeploymentEnvironment {
+                        id: None,
+                        title: env,
+                        internal: false,
+                    },
+                )
+                .await?
+            }
+        },
+        None => {
+            return Err(crate::error::simple_error(
+                &String::from("Environment must be filled"),
+                &StatusCode::CONFLICT,
+            ));
+        }
+    };
+
+    facade::insert_package_version_deployment_environment(
+        &mut tx,
+        &EnPackageVersionDeploymentEnvironment {
+            package_version_id,
+            deployment_environment_id,
+        },
+    )
+    .await?;
     tx.commit().await?;
+
     Ok(Json(vulnerable_package_history))
 }
