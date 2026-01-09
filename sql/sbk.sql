@@ -92,7 +92,7 @@ CREATE TABLE sca.package
 	id             INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	title          TEXT NOT NULL,
 	description    TEXT,
-	product_id     SMALLINT NOT NULL,
+	product_id     INT NOT NULL,
 	CONSTRAINT package_unique_title_product_id UNIQUE (title, product_id),
 	CONSTRAINT package_fk_product FOREIGN KEY (product_id) REFERENCES sca.product ON DELETE CASCADE
 );

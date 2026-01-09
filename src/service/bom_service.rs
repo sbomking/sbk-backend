@@ -8,7 +8,12 @@ use crate::{
     },
 };
 use axum::extract::{Multipart, State};
-use axum::{Router, extract::Query, response::Json, routing::post};
+use axum::{
+    Router,
+    extract::{Json as JsonExtract, Path, Query},
+    response::Json,
+    routing::{delete, get, post, put},
+};
 use chrono::Utc;
 use hyper::StatusCode;
 use sha2::Digest;
@@ -16,7 +21,30 @@ use sqlx::{Postgres, Transaction};
 
 pub fn bom_router() -> Router<AppState> {
     //Router::new().route("/v1/product_lines/{id}/products/{id}/bom", post(post_bom))
-    Router::new().route("/api/v1/bom", post(post_bom))
+    Router::new()
+        .route("/api/v1/bom/{id}", get(get_bom))
+        .route("/api/v1/bom", post(post_bom))
+}
+
+pub async fn get_bom(
+    State(state): State<AppState>,
+    Path(sbom_id): Path<i64>,
+) -> Result<Json<Option<CdxBom>>, ErrorMsg> {
+    let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
+    let result: Option<EnSbom> = facade::select_sbom_by_id(&mut tx, &sbom_id).await?;
+
+    let cdx_bom: Option<CdxBom> = match result {
+        Some(bom) => match bom.sbom_enriched {
+            Some(sbom_enriched) => {
+                serde_json::from_str::<Option<CdxBom>>(&sbom_enriched)?
+                //serde_json::from_str(&bom.sbom_enriched)?
+            }
+            None => None,
+        },
+        None => None,
+    };
+
+    Ok(Json(cdx_bom))
 }
 
 /**

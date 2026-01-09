@@ -39,26 +39,17 @@ pub async fn update_sbom(
     Ok(())
 }
 
-pub async fn select_sbom(pool: &PgPool) -> Result<Vec<EnProductLineProducts>, sqlx::Error> {
-    let items: Vec<FromQueryProductLineProduct> = sqlx::query_as::<_, FromQueryProductLineProduct>(
-        "SELECT pl.id as pl_id, pl.title as pl_title,
-        p.id as p_id, p.title as p_title, p.product_line_id as p_product_line_id
-        FROM product_line pl left join product p on pl.id = p.product_line_id",
-    )
-    .fetch_all(pool)
-    .await?;
-    Ok(map_product_line(items))
-}
-
 pub async fn select_sbom_by_id(
     tx: &mut Transaction<'static, Postgres>,
-    id: &i16,
-) -> Result<EnProductLine, ErrorMsg> {
-    let item: EnProductLine =
-        sqlx::query_as::<_, EnProductLine>("SELECT id, title FROM product_line where id=$1")
-            .bind(id)
-            .fetch_one(&mut **tx)
-            .await?;
+    id: &i64,
+) -> Result<Option<EnSbom>, sqlx::Error> {
+    let item: Option<EnSbom> = sqlx::query_as::<_, EnSbom>(
+        "SELECT s.id, s.sbom_enriched, s.sbom_original, s.s3_uuid_enriched, s.s3_uuid_original, s.sha256
+        FROM sbom sb where s.id=$1",
+    )
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await?;
     Ok(item)
 }
 

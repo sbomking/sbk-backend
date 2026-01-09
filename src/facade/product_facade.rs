@@ -66,7 +66,7 @@ pub async fn select_product_by_title_product_line_id(
 pub async fn select_reproduct_by_id(
     tx: &mut Transaction<'static, Postgres>,
     product_id: &i32,
-) -> Result<Vec<ReProduct>, ErrorMsg> {
+) -> Result<Option<ReProduct>, ErrorMsg> {
     let items: Vec<FromQueryReProduct> = sqlx::query_as::<_, FromQueryReProduct>(
         "SELECT p.id as p_id, p.title as p_title, p.product_line_id as p_product_line_id,
             pkg.id as pkg_id, pkg.title as pkg_title, pkg.description as pkg_description, pkg.product_id as pkg_product_id,

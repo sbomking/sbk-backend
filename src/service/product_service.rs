@@ -60,9 +60,9 @@ pub async fn get_products(
 pub async fn get_product(
     State(state): State<AppState>,
     Path((_product_line_id, product_id)): Path<(i16, i32)>,
-) -> Result<Json<Vec<ReProduct>>, ErrorMsg> {
+) -> Result<Json<Option<ReProduct>>, ErrorMsg> {
     let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
-    let result: Vec<ReProduct> = facade::select_reproduct_by_id(&mut tx, &product_id).await?;
+    let result: Option<ReProduct> = facade::select_reproduct_by_id(&mut tx, &product_id).await?;
     Ok(Json(result))
 }
 
