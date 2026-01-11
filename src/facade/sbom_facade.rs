@@ -45,7 +45,7 @@ pub async fn select_sbom_by_id(
 ) -> Result<Option<EnSbom>, sqlx::Error> {
     let item: Option<EnSbom> = sqlx::query_as::<_, EnSbom>(
         "SELECT s.id, s.sbom_enriched, s.sbom_original, s.s3_uuid_enriched, s.s3_uuid_original, s.sha256
-        FROM sbom sb where s.id=$1",
+        FROM sbom s where s.id=$1",
     )
     .bind(id)
     .fetch_optional(&mut **tx)

@@ -220,3 +220,89 @@ pub fn map_reproduct(items: Vec<FromQueryReProduct>) -> Option<ReProduct> {
      */
     product
 }
+
+#[derive(Serialize, Deserialize, FromRow)]
+pub struct FromQueryRePackage {
+    pub pkg_id: Option<i32>,
+    pub pkg_title: String,
+    pub pkg_description: Option<String>,
+    pub pkg_product_id: Option<i32>,
+
+    pub pkgv_id: Option<i64>,
+    pub pkgv_title: Option<String>,
+    pub pkgv_latest_scan: Option<chrono::DateTime<chrono::Utc>>,
+    pub pkgv_sbom_id: Option<i64>,
+    pub pkgv_package_id: Option<i32>,
+
+    pub de_id: Option<i16>,
+    pub de_internal: Option<bool>,
+    pub de_title: Option<String>,
+
+    pub vph_id: Option<i64>,
+    pub vph_critical: Option<i16>,
+    pub vph_high: Option<i16>,
+    pub vpb_medium: Option<i16>,
+    pub vph_low: Option<i16>,
+    pub vph_info: Option<i16>,
+    pub vph_unknown: Option<i16>,
+    pub vph_none: Option<i16>,
+    pub vph_created_date: Option<chrono::DateTime<chrono::Utc>>,
+    pub vph_package_version_id: Option<i64>,
+}
+
+pub fn map_repackage(items: Vec<FromQueryRePackage>) -> Option<RePackage> {
+    let mut package: Option<RePackage> = None;
+
+    for item in items {
+        if package.is_none() {
+            package = Some(RePackage {
+                id: item.pkg_id.unwrap_or(0),
+                title: item.pkg_title,
+                description: item.pkg_description,
+                product_id: item.pkg_product_id.unwrap_or(0),
+                versions: vec![],
+            });
+        }
+
+        let package = package.as_mut().unwrap();
+
+        if let Some(pkg_id) = item.pkg_id {
+            if let Some(pkgv_id) = item.pkgv_id {
+                let version = match package.versions.iter_mut().find(|v| v.id == pkgv_id) {
+                    Some(version) => version,
+                    None => {
+                        let new_version = RePackageVersion {
+                            id: pkgv_id,
+                            title: item.pkgv_title.clone().unwrap_or_default(),
+                            latest_scan: item.pkgv_latest_scan,
+                            package_id: item.pkgv_package_id.unwrap_or(pkg_id),
+                            sbom_id: item.pkgv_sbom_id,
+                            deployment: item.de_id.map(|_| EnDeploymentEnvironment {
+                                id: item.de_id,
+                                internal: item.de_internal.unwrap_or(false),
+                                title: item.de_title.clone().unwrap_or_default(),
+                            }),
+                            latest_vulnerable_package_history: item.vph_id.map(|_| {
+                                EnVulnerablePackageHistory {
+                                    id: item.vph_id.unwrap_or(0),
+                                    critical: item.vph_critical.unwrap_or(0),
+                                    high: item.vph_high.unwrap_or(0),
+                                    medium: item.vpb_medium.unwrap_or(0),
+                                    low: item.vph_low.unwrap_or(0),
+                                    info: item.vph_info.unwrap_or(0),
+                                    unknown: item.vph_unknown.unwrap_or(0),
+                                    none: item.vph_none.unwrap_or(0),
+                                    created_date: item.vph_created_date.unwrap_or(Utc::now()),
+                                    package_version_id: item.vph_package_version_id.unwrap_or(0),
+                                }
+                            }),
+                        };
+                        package.versions.push(new_version);
+                        package.versions.last_mut().unwrap()
+                    }
+                };
+            }
+        }
+    }
+    package
+}

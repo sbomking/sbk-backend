@@ -29,7 +29,13 @@ pub fn bom_router() -> Router<AppState> {
 pub async fn get_bom(
     State(state): State<AppState>,
     Path(sbom_id): Path<i64>,
+    claims: UserClaims,
+    Query(lang): Query<WsUserLang>,
 ) -> Result<Json<Option<CdxBom>>, ErrorMsg> {
+    if !claims.security {
+        return Err(crate::error::unauthorized_error(&lang));
+    }
+
     let mut tx: Transaction<'static, Postgres> = state.pool.begin().await?;
     let result: Option<EnSbom> = facade::select_sbom_by_id(&mut tx, &sbom_id).await?;
 

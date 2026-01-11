@@ -22,17 +22,16 @@ use axum::{
     http::{self, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
-use tower_http::cors::CorsLayer;
 use std::env;
+use tower_http::cors::CorsLayer;
 
 use std::{borrow::Cow, fs, time::Duration};
 use tower::{BoxError, ServiceBuilder};
 use tracing::Span;
 
-use crate::model::HTTP_CORS_ORIGINS;
+use crate::{model::HTTP_CORS_ORIGINS, service::package_version_router};
 
 //use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 
 async fn create_file(filename: &str) -> Result<fs::File, std::io::Error> {
     let file_path = model::VOLUME_LOG.to_string() + filename;
@@ -49,9 +48,8 @@ async fn create_file(filename: &str) -> Result<fs::File, std::io::Error> {
 
 //https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>  {
-
-    /* 
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    /*
     let mut client = GreeterClient::connect("http://[::1]:50051").await?;
 
     let request = tonic::Request::new(HelloRequest {
@@ -106,6 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let mut app = Router::new()
         .merge(bom_router())
         .merge(health_router())
+        .merge(package_version_router())
         .merge(product_line_router())
         .merge(product_router())
         .merge(scan_router())
@@ -143,7 +142,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
                             //tracing::error!("on_request! on");
                         })
                         .on_response(|response: &Response, latency: Duration, _span: &Span| {
-                            tracing::info!("Status {} response on {} ms", response.status(), latency.as_millis());
+                            tracing::info!(
+                                "Status {} response on {} ms",
+                                response.status(),
+                                latency.as_millis()
+                            );
                         })
                         .on_body_chunk(|_chunk: &Bytes, _latency: Duration, _span: &Span| {
                             //tracing::info!("on_body_chunk: {} ms", _latency.as_millis());
